@@ -1,3 +1,5 @@
+export type Branded<T, Brand extends string> = T & { _brand: Brand };
+
 export type JsonArray = JsonValue[] | readonly JsonValue[];
 
 export interface JsonObject {
@@ -8,10 +10,10 @@ export interface JsonObject {
 export type JsonPrimitive = boolean | null | number | string;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
-
 export interface ParseOptions {
 	revivers?: Record<string, (value: unknown) => unknown>;
 }
+
 export interface SerializeOptions {
 	coerceError?: (cause: unknown) => unknown;
 	reducers?: Record<
@@ -19,10 +21,8 @@ export interface SerializeOptions {
 		(value: unknown) => Exclude<JsonValue, boolean> | false
 	>;
 }
+type CounterFn<T extends string> = () => Branded<number, T>;
 
-type CounterFn<T extends string> = () => number & {
-	_brand: T;
-};
 export function counter<T extends string>(): CounterFn<T> {
 	let i = 0;
 	return () => {

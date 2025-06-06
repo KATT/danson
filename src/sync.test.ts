@@ -87,7 +87,7 @@ test("self-referencing object", () => {
 	expect(meta.tail).toEqual([]);
 });
 
-test.fails("fixme: custom types", () => {
+test("custom simple type", () => {
 	const source = {
 		bigint: 1n,
 	};
@@ -103,9 +103,134 @@ test.fails("fixme: custom types", () => {
 		},
 	});
 
+	expect(meta.chunk).toMatchInlineSnapshot(`
+		{
+		  "index": 1,
+		  "type": "object",
+		  "value": {
+		    "bigint": {
+		      "index": 2,
+		      "name": "BigInt",
+		      "type": "custom",
+		      "value": {
+		        "index": 3,
+		        "type": "primitive",
+		        "value": "1",
+		      },
+		    },
+		  },
+		}
+	`);
+
 	expect(meta.head).toEqual({
 		bigint: "$1",
 	});
 
-	expect(meta.tail).toMatchInlineSnapshot();
+	expect(meta.tail).toMatchInlineSnapshot(`
+		[
+		  [
+		    1,
+		    "BigInt",
+		    "1",
+		  ],
+		]
+	`);
+});
+
+test("custom complex type", () => {
+	const map = new Map<string, number>();
+	map.set("a", 1);
+	map.set("b", 2);
+
+	const source = {
+		map,
+	};
+
+	const meta = serializeSync(source, {
+		reducers: {
+			Map: (value) => {
+				if (value instanceof Map) {
+					return Array.from(value.entries());
+				}
+				return false;
+			},
+		},
+	});
+
+	expect(meta.chunk).toMatchInlineSnapshot(`
+		{
+		  "index": 1,
+		  "type": "object",
+		  "value": {
+		    "map": {
+		      "index": 2,
+		      "name": "Map",
+		      "type": "custom",
+		      "value": {
+		        "index": 3,
+		        "type": "array",
+		        "value": [
+		          {
+		            "index": 4,
+		            "type": "array",
+		            "value": [
+		              {
+		                "index": 5,
+		                "type": "primitive",
+		                "value": "a",
+		              },
+		              {
+		                "index": 6,
+		                "type": "primitive",
+		                "value": 1,
+		              },
+		            ],
+		          },
+		          {
+		            "index": 7,
+		            "type": "array",
+		            "value": [
+		              {
+		                "index": 8,
+		                "type": "primitive",
+		                "value": "b",
+		              },
+		              {
+		                "index": 9,
+		                "type": "primitive",
+		                "value": 2,
+		              },
+		            ],
+		          },
+		        ],
+		      },
+		    },
+		  },
+		}
+	`);
+
+	expect(meta.head).toMatchInlineSnapshot(`
+		{
+		  "map": "$1",
+		}
+	`);
+
+	expect(meta.tail).toMatchInlineSnapshot(`
+		[
+		  [
+		    1,
+		    "Map",
+		    [
+		      [
+		        "a",
+		        1,
+		      ],
+		      [
+		        "b",
+		        2,
+		      ],
+		    ],
+		  ],
+		]
+	`);
 });

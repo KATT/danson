@@ -4,7 +4,12 @@
  * We're making a json stringifier that can be used to serialize and deserialize data.
  */
 
-import { counter, isJsonPrimitive, SerializeOptions } from "./utils.js";
+import {
+	Branded,
+	counter,
+	isJsonPrimitive,
+	SerializeOptions,
+} from "./utils.js";
 
 const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
 	.sort()
@@ -21,11 +26,18 @@ type JsonPrimitive = boolean | null | number | string;
 type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
+	const reducers = options.reducers ?? {};
+	type ReducerName = Branded<string, "reducer">;
 	const values = new Map<unknown, Index>();
 
 	const incrementIndex = counter<"index">();
 	type Index = ReturnType<typeof incrementIndex>;
 	type Chunk = { index: Index } & (
+		| {
+				name: ReducerName;
+				type: "custom";
+				value: Chunk;
+		  }
 		| {
 				type: "array";
 				value: Chunk[];
@@ -56,6 +68,20 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 		const index = incrementIndex();
 		values.set(thing, index);
+
+		for (const [name, fn] of Object.entries(reducers)) {
+			const value = fn(thing);
+			if (value === false) {
+				continue;
+			}
+
+			return {
+				index,
+				name: name as ReducerName,
+				type: "custom",
+				value: introspect(value),
+			};
+		}
 
 		if (isJsonPrimitive(thing)) {
 			return {
@@ -89,7 +115,11 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const refCounter = counter<"ref">();
 	type RefId = ReturnType<typeof refCounter>;
 
-	type Tail = [RefId, JsonValue][];
+	type Tail = (
+		| [RefId, JsonValue]
+		// reducer value
+		| [RefId, keyof typeof reducers, JsonValue]
+	)[];
 
 	const refToIndexRecord: Record<Index, RefId> = {};
 	function getRefIdForIndex(index: Index): RefId {
@@ -104,31 +134,43 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		return refToIndexRecord[index];
 	}
 
-	function toJson(part: Chunk, force: boolean): [JsonValue, Tail] {
-		if (part.type === "ref") {
-			const refId = getRefIdForIndex(part.index);
+	function toJson(chunk: Chunk, force: boolean): [JsonValue, Tail] {
+		if (chunk.type === "ref") {
+			const refId = getRefIdForIndex(chunk.index);
 			return [`$${refId}`, []];
 		}
-		if (knownDuplicates.has(part.index) && !force) {
-			const [head, tail] = toJson(part, true);
+		if (knownDuplicates.has(chunk.index) && !force) {
+			const [head, tail] = toJson(chunk, true);
 
-			const refId = getRefIdForIndex(part.index);
+			const refId = getRefIdForIndex(chunk.index);
 			return [`$${refId}`, [[refId, head], ...tail]];
 		}
 
-		switch (part.type) {
+		switch (chunk.type) {
 			case "array": {
-				const parts = part.value.map((v) => toJson(v, false));
+				const parts = chunk.value.map((v) => toJson(v, false));
 
 				const head: JsonArray = parts.map(([head]) => head);
 				const tail: Tail = parts.flatMap(([, tail]) => tail);
 
 				return [head, tail];
 			}
+			case "custom": {
+				const refId = getRefIdForIndex(chunk.index);
+				const [head, tail] = toJson(chunk.value, false);
+				return [
+					`$${refId}`,
+					[
+						//
+						[refId, chunk.name, head],
+						...tail,
+					],
+				];
+			}
 			case "object": {
 				const head: JsonObject = {};
 				const tail: Tail = [];
-				for (const [key, value] of Object.entries(part.value)) {
+				for (const [key, value] of Object.entries(chunk.value)) {
 					const [h, t] = toJson(value, false);
 
 					head[key] = h;
@@ -137,12 +179,13 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 				return [head, tail];
 			}
 			case "primitive": {
-				return [part.value, []];
+				return [chunk.value, []];
 			}
 		}
 	}
 
 	const chunk = introspect(value);
+
 	const [head, tail] = toJson(chunk, true);
 	return {
 		chunk,
