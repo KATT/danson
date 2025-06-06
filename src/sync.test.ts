@@ -307,8 +307,8 @@ test("stringify object", () => {
 		objAgain: obj,
 	};
 
-	const str = stringifySync(source, { space: 2 });
-	expect(str).toMatchInlineSnapshot(`
+	const meta = stringifySync(source, { space: 2 });
+	expect(meta.text).toMatchInlineSnapshot(`
 		"{
 		  "obj": "$1",
 		  "objAgain": "$1"
@@ -321,7 +321,7 @@ test("stringify object", () => {
 		}"
 	`);
 
-	const result = parseSync(str);
+	const result = parseSync(meta.text);
 	expect(result).toEqual(source);
 });
 
@@ -330,7 +330,7 @@ test("stringify custom type", () => {
 		bigint: 1n,
 	};
 
-	const str = stringifySync(source, {
+	const meta = stringifySync(source, {
 		reducers: {
 			BigInt: (value) => {
 				if (typeof value !== "bigint") {
@@ -341,7 +341,7 @@ test("stringify custom type", () => {
 		},
 		space: 2,
 	});
-	expect(str).toMatchInlineSnapshot(`
+	expect(meta.text).toMatchInlineSnapshot(`
 		"{
 		  "bigint": "$1"
 		}
@@ -349,7 +349,7 @@ test("stringify custom type", () => {
 		"1""
 	`);
 
-	const result = parseSync(str, {
+	const result = parseSync(meta.text, {
 		revivers: {
 			BigInt: (value) => BigInt(value as string),
 		},

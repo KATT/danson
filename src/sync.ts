@@ -1,9 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-
-/**
- * We're making a json stringifier that can be used to serialize and deserialize data.
- */
-
 import {
 	Branded,
 	counter,
@@ -261,7 +257,10 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		str.push(JSON.stringify(tailValue.value, null, options.space));
 	}
 
-	return str.join("\n");
+	return {
+		...result,
+		text: str.join("\n"),
+	};
 }
 
 type ReviverRecord = Record<string, (value: unknown) => unknown>;
@@ -271,7 +270,6 @@ export interface DeserializeOptions {
 	tail: TailRecord;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
 	const refResult = new Map<RefId, unknown>();
@@ -419,3 +417,4 @@ export function parseSync<T>(value: string, options?: ParseSyncOptions) {
 }
 
 /* eslint-enable @typescript-eslint/restrict-template-expressions */
+/* eslint-enable @typescript-eslint/no-unnecessary-type-parameters */
