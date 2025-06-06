@@ -1,6 +1,6 @@
-
 import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
+import { ParseOptions, StringifyOptions } from "./types.js";
 
 type Branded<T, Brand> = T & { __brand: Brand };
 
@@ -35,9 +35,7 @@ type ChunkStatus = Branded<number, "chunkStatus">;
 
 export async function parseAsync<T>(
 	value: AsyncIterable<string>,
-	opts: {
-		revivers?: Record<string, (value: unknown) => unknown>;
-	} = {},
+	opts: ParseOptions = {},
 ): Promise<T> {
 	const iterator = lineAggregator(value)[Symbol.asyncIterator]();
 	const controllerMap = new Map<
@@ -89,24 +87,20 @@ export async function parseAsync<T>(
 		}
 		return c;
 	}
-	
 
 	throw new Error("Not implemented");
 }
 
 export async function* stringifyAsync(
 	value: unknown,
-	options: {
-		coerceError?: (cause: unknown) => unknown;
-		reducers?: Record<string, (value: unknown) => unknown>;
-	} = {},
+	options: StringifyOptions = {},
 ) {
-	let chunkIndex = 0 as ChunkIndex;
+	const chunkIndex = 0 as ChunkIndex;
 
 	const mergedIterables =
 		mergeAsyncIterables<[ChunkIndex, ChunkStatus, string]>();
 
-		throw new Error("Not implemented");
+	throw new Error("Not implemented");
 }
 
 async function* lineAggregator(iterable: AsyncIterable<string>) {
