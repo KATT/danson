@@ -4,7 +4,7 @@
  * We're making a json stringifier that can be used to serialize and deserialize data.
  */
 
-import { counter, isJsonPrimitive, StringifyOptions } from "./utils.js";
+import { counter, isJsonPrimitive, SerializeOptions } from "./utils.js";
 
 const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
 	.sort()
@@ -20,7 +20,7 @@ type JsonPrimitive = boolean | null | number | string;
 
 type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
-export function serializeSync(value: unknown, options: StringifyOptions = {}) {
+export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const values = new Map<unknown, Index>();
 
 	const incrementIndex = counter<"index">();

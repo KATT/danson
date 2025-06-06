@@ -1,6 +1,6 @@
 import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
-import { ParseOptions, StringifyOptions } from "./utils.js";
+import { ParseOptions, SerializeOptions } from "./utils.js";
 
 type Branded<T, Brand> = T & { __brand: Brand };
 
@@ -93,7 +93,7 @@ export async function parseAsync<T>(
 
 export async function* stringifyAsync(
 	value: unknown,
-	options: StringifyOptions = {},
+	options: SerializeOptions = {},
 ) {
 	const chunkIndex = 0 as ChunkIndex;
 

@@ -12,7 +12,7 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 export interface ParseOptions {
 	revivers?: Record<string, (value: unknown) => unknown>;
 }
-export interface StringifyOptions {
+export interface SerializeOptions {
 	coerceError?: (cause: unknown) => unknown;
 	reducers?: Record<
 		string,
