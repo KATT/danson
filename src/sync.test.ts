@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 
-import { deserializeSync, serializeSync } from "./sync.js";
+import {
+	deserializeSync,
+	parseSync,
+	serializeSync,
+	stringifySync,
+} from "./sync.js";
 
 test("string", () => {
 	const source = "hello";
@@ -289,4 +294,65 @@ test("special handling - strings with $", () => {
 		  },
 		}
 	`);
+});
+
+test("stringify object", () => {
+	const obj = {
+		a: 1,
+		b: 2,
+		c: 3,
+	};
+	const source = {
+		obj,
+		objAgain: obj,
+	};
+
+	const str = stringifySync(source, { space: 2 });
+	expect(str).toMatchInlineSnapshot(`
+		"{
+		  "obj": "$1",
+		  "objAgain": "$1"
+		}
+		/* $1 */
+		{
+		  "a": 1,
+		  "b": 2,
+		  "c": 3
+		}"
+	`);
+
+	const result = parseSync(str);
+	expect(result).toEqual(source);
+});
+
+test("stringify custom type", () => {
+	const source = {
+		bigint: 1n,
+	};
+
+	const str = stringifySync(source, {
+		reducers: {
+			BigInt: (value) => {
+				if (typeof value !== "bigint") {
+					return false;
+				}
+				return value.toString();
+			},
+		},
+		space: 2,
+	});
+	expect(str).toMatchInlineSnapshot(`
+		"{
+		  "bigint": "$1"
+		}
+		/* $1:BigInt */
+		"1""
+	`);
+
+	const result = parseSync(str, {
+		revivers: {
+			BigInt: (value) => BigInt(value as string),
+		},
+	});
+	expect(result).toEqual(source);
 });

@@ -9,6 +9,7 @@ import {
 	counter,
 	CounterFn,
 	isJsonPrimitive,
+	isPlainObject,
 	JsonObject,
 	JsonPrimitive,
 	JsonValue,
@@ -243,9 +244,30 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	};
 }
 
+export interface StringifyOptions extends SerializeOptions {
+	space?: number;
+}
+export function stringifySync(value: unknown, options: StringifyOptions = {}) {
+	const result = serializeSync(value, options);
+
+	const str: string[] = [JSON.stringify(result.head, null, options.space)];
+
+	for (const [refId, tailValue] of Object.entries(result.tail)) {
+		const title =
+			tailValue.type === "reducer"
+				? `${refId}:${tailValue.reducerName}`
+				: refId;
+		str.push(`/* $${title} */`);
+		str.push(JSON.stringify(tailValue.value, null, options.space));
+	}
+
+	return str.join("\n");
+}
+
+type ReviverRecord = Record<string, (value: unknown) => unknown>;
 export interface DeserializeOptions {
 	head: JsonValue;
-	revivers?: Record<string, (value: unknown) => unknown>;
+	revivers?: ReviverRecord;
 	tail: TailRecord;
 }
 
@@ -320,24 +342,80 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 			return result;
 		}
 
-		return value;
+		throw new Error("Deserializing unknown value");
 	}
 
 	return deserializeValue(options.head, true) as T;
 }
 
-const objectProtoNames = Object.getOwnPropertyNames(Object.prototype)
-	.sort()
-	.join("\0");
-function isPlainObject(thing: unknown): thing is Record<string, unknown> {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-	const proto = Object.getPrototypeOf(thing);
+export interface ParseSyncOptions {
+	revivers?: ReviverRecord;
+}
+export function parseSync<T>(value: string, options?: ParseSyncOptions) {
+	const lines = value.split("\n");
 
-	return (
-		proto === Object.prototype ||
-		proto === null ||
-		Object.getOwnPropertyNames(proto).sort().join("\0") === objectProtoNames
-	);
+	const headLines: string[] = [];
+	// get head
+	let line;
+	while ((line = lines.shift())) {
+		if (line.startsWith("/*")) {
+			lines.unshift(line);
+			break;
+		}
+		headLines.push(line);
+	}
+	const head = JSON.parse(headLines.join("\n")) as JsonValue;
+
+	const tail: TailRecord = {};
+
+	const buffer: string[] = [];
+
+	function flushBuffer() {
+		if (!buffer.length) {
+			return;
+		}
+		// first line of the buffer is the title
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const rawTitle = buffer.shift()!;
+		const rawValue = buffer.join("\n");
+
+		const value = JSON.parse(rawValue) as JsonValue;
+
+		// remove the "/* $" and " */"
+		const title = rawTitle.slice(4, -3);
+
+		const [refId, reducerName] = title.split(":");
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const refIdNumber = Number(refId!) as RefId;
+
+		if (reducerName) {
+			tail[refIdNumber] = {
+				reducerName: reducerName as ReducerName,
+				type: "reducer",
+				value,
+			};
+		} else {
+			tail[refIdNumber] = {
+				type: "ref",
+				value,
+			};
+		}
+	}
+
+	while ((line = lines.shift())) {
+		if (line.startsWith("/*")) {
+			flushBuffer();
+			buffer.push(line);
+			continue;
+		}
+		buffer.push(line);
+	}
+	flushBuffer();
+	return deserializeSync<T>({
+		...options,
+		head,
+		tail,
+	});
 }
 
 /* eslint-enable @typescript-eslint/restrict-template-expressions */

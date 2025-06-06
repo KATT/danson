@@ -10,22 +10,6 @@ export interface JsonObject {
 export type JsonPrimitive = boolean | null | number | string;
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
-export interface ParseOptions {
-	revivers?: Record<string, (value: unknown) => unknown>;
-}
-
-export interface SerializeOptions {
-	coerceError?: (cause: unknown) => unknown;
-	reducers?: Record<
-		string,
-		(value: unknown) => Exclude<JsonValue, boolean> | false
-	>;
-}
-
-export interface DeserializeOptions {
-	revivers?: Record<string, (value: unknown) => unknown>;
-}
-
 export function counter<T extends string>(): CounterFn<T> {
 	let i = 0;
 	return () => {
@@ -35,4 +19,20 @@ export function counter<T extends string>(): CounterFn<T> {
 export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {
 	const type = typeof thing;
 	return type === "boolean" || type === "number" || type === "string";
+}
+
+const objectProtoNames = Object.getOwnPropertyNames(Object.prototype)
+	.sort()
+	.join("\0");
+export function isPlainObject(
+	thing: unknown,
+): thing is Record<string, unknown> {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	const proto = Object.getPrototypeOf(thing);
+
+	return (
+		proto === Object.prototype ||
+		proto === null ||
+		Object.getOwnPropertyNames(proto).sort().join("\0") === objectProtoNames
+	);
 }
