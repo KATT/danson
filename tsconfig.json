@@ -9,7 +9,9 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"strict": true,
-		"target": "ES2022"
+		"target": "ES2022",
+		"noUncheckedIndexedAccess": true,
+		"strictNullChecks": true
 	},
 	"include": ["src"]
 }

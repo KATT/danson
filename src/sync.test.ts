@@ -1,13 +1,14 @@
 import { expect, test } from "vitest";
 
-import { serializeSync } from "./sync.js";
+import { deserializeSync, serializeSync } from "./sync.js";
 
 test("string", () => {
 	const source = "hello";
 	const meta = serializeSync(source);
 
 	expect(meta.head).toBe(source);
-	expect(meta.tail).toEqual([]);
+	expect(meta.tail).toEqual({});
+	expect(deserializeSync(meta)).toEqual(source);
 });
 
 test("number", () => {
@@ -15,7 +16,9 @@ test("number", () => {
 	const meta = serializeSync(source);
 
 	expect(meta.head).toBe(1);
-	expect(meta.tail).toEqual([]);
+	expect(meta.tail).toEqual({});
+
+	expect(deserializeSync(meta)).toEqual(source);
 });
 
 test("object", () => {
@@ -27,7 +30,9 @@ test("object", () => {
 	const meta = serializeSync(source);
 
 	expect(meta.head).toEqual(source);
-	expect(meta.tail).toEqual([]);
+	expect(meta.tail).toEqual({});
+
+	expect(deserializeSync(meta)).toEqual(source);
 });
 
 test("duplicate values", () => {
@@ -55,21 +60,23 @@ test("duplicate values", () => {
 	});
 
 	expect(meta.tail).toMatchInlineSnapshot(`
-		[
-		  [
+		{
+		  "1": [
 		    1,
 		    {
 		      "a": 1,
 		    },
 		  ],
-		  [
+		  "2": [
 		    2,
 		    {
 		      "b": 2,
 		    },
 		  ],
-		]
+		}
 	`);
+
+	expect(deserializeSync(meta)).toEqual(source);
 });
 
 test("self-referencing object", () => {
@@ -84,7 +91,12 @@ test("self-referencing object", () => {
 		foo: "bar",
 		self: "$0",
 	});
-	expect(meta.tail).toEqual([]);
+	expect(meta.tail).toEqual({});
+
+	const result = deserializeSync<typeof source>(meta);
+
+	expect(result).toEqual(source);
+	expect(result.self).toBe(result);
 });
 
 test("custom simple type", () => {
@@ -127,14 +139,23 @@ test("custom simple type", () => {
 	});
 
 	expect(meta.tail).toMatchInlineSnapshot(`
-		[
-		  [
+		{
+		  "1": [
 		    1,
 		    "BigInt",
 		    "1",
 		  ],
-		]
+		}
 	`);
+
+	const result = deserializeSync<typeof source>({
+		...meta,
+		revivers: {
+			BigInt: (value) => BigInt(value as string),
+		},
+	});
+
+	expect(result).toEqual(source);
 });
 
 test("custom complex type", () => {
@@ -216,8 +237,8 @@ test("custom complex type", () => {
 	`);
 
 	expect(meta.tail).toMatchInlineSnapshot(`
-		[
-		  [
+		{
+		  "1": [
 		    1,
 		    "Map",
 		    [
@@ -231,8 +252,19 @@ test("custom complex type", () => {
 		      ],
 		    ],
 		  ],
-		]
+		}
 	`);
+
+	const result = deserializeSync<typeof source>({
+		...meta,
+		revivers: {
+			Map: (value) => {
+				return new Map(value as [unknown, unknown][]);
+			},
+		},
+	});
+
+	expect(result).toEqual(source);
 });
 
 test("special handling - strings with $", () => {
@@ -246,14 +278,14 @@ test("special handling - strings with $", () => {
 		foo: "$1",
 	});
 
-	expect(meta.tail).not.toEqual([]);
+	expect(meta.tail).not.toEqual({});
 	expect(meta.tail).toMatchInlineSnapshot(`
-		[
-		  [
+		{
+		  "1": [
 		    1,
 		    "_$",
 		    "$1",
 		  ],
-		]
+		}
 	`);
 });
