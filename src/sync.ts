@@ -6,11 +6,18 @@
 
 import { StringifyOptions } from "./types.js";
 
-type Primitive = bigint | boolean | number | string;
-
 const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
 	.sort()
 	.join("\0");
+type JsonArray = JsonValue[] | readonly JsonValue[];
+
+interface JsonObject {
+	[key: number | string]: JsonValue;
+	[key: symbol]: never;
+}
+
+type JsonPrimitive = boolean | null | number | string;
+type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 export function is_plain_object(
 	thing: unknown,
 ): thing is Record<string, unknown> {
@@ -23,28 +30,9 @@ export function is_plain_object(
 		Object.getOwnPropertyNames(proto).sort().join("\0") === object_proto_names
 	);
 }
-
-export function is_primitive(
-	thing: unknown,
-): thing is bigint | boolean | number | string {
-	return Object(thing) !== thing;
-}
-
-export function stringify_string(str: string) {
-	let result = "";
-	let last_pos = 0;
-	const len = str.length;
-
-	for (let i = 0; i < len; i += 1) {
-		const char = str[i];
-		const replacement = get_escaped_char(char);
-		if (replacement) {
-			result += str.slice(last_pos, i) + replacement;
-			last_pos = i + 1;
-		}
-	}
-
-	return `"${last_pos === 0 ? str : result + str.slice(last_pos)}"`;
+export function is_primitive(thing: unknown): thing is JsonPrimitive {
+	const type = typeof thing;
+	return type === "boolean" || type === "number" || type === "string";
 }
 
 export function stringifySync(value: unknown, options: StringifyOptions = {}) {
@@ -60,7 +48,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		  }
 		| {
 				type: "primitive";
-				value: Primitive;
+				value: JsonPrimitive;
 		  }
 		| {
 				type: "ref";
@@ -112,7 +100,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		throw new Error("unimplemented");
 	}
 
-	type Tail = [number, string][];
+	type Tail = [number, JsonValue][];
 	let refCount = 0;
 
 	const refMap: Record<number, number> = {};
@@ -128,58 +116,46 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		return refMap[index];
 	}
 
-	function print(part: Chunk, force: boolean): [string, Tail] {
+	function toJson(part: Chunk, force: boolean): [JsonValue, Tail] {
 		if (part.type === "ref") {
 			const refId = getRefIdForIndex(part.index);
-			return [`"$${refId}"`, []];
+			return [`$${refId}`, []];
 		}
 		if (refs.has(part.index) && !force) {
-			const [head, tail] = print(part, true);
+			const [head, tail] = toJson(part, true);
 
 			const refId = getRefIdForIndex(part.index);
-			return [`"$${refId}"`, [[refId, head], ...tail]];
+			return [`$${refId}`, [[refId, head], ...tail]];
 		}
-		let headAggregate = "";
-		const tailAggregate: Tail = [];
 
 		switch (part.type) {
 			case "array": {
-				const parts = part.value.map((v) => print(v, false));
+				const parts = part.value.map((v) => toJson(v, false));
 
-				headAggregate += `[${parts.map(([head]) => head).join(",")}]`;
+				const head: JsonArray = parts.map(([head]) => head);
+				const tail: Tail = parts.flatMap(([, tail]) => tail);
 
-				for (const [, t] of parts) {
-					tailAggregate.push(...t);
-				}
-				break;
+				return [head, tail];
 			}
 			case "object": {
-				headAggregate += "{";
-				let isFirst = true;
+				const head: JsonObject = {};
+				const tail: Tail = [];
 				for (const [key, value] of Object.entries(part.value)) {
-					const [h, t] = print(value, false);
-					if (!isFirst) {
-						headAggregate += ",";
-					}
-					headAggregate += `${stringify_string(key)}:${h}`;
-					isFirst = false;
-					tailAggregate.push(...t);
+					const [h, t] = toJson(value, false);
+
+					head[key] = h;
+					tail.push(...t);
 				}
-				headAggregate += "}";
-				break;
+				return [head, tail];
 			}
 			case "primitive": {
-				headAggregate += stringify_primitive(part.value);
-
-				break;
+				return [part.value, []];
 			}
 		}
-
-		return [headAggregate, tailAggregate];
 	}
 
 	const chunk = introspect(value);
-	const [head, tail] = print(chunk, true);
+	const [head, tail] = toJson(chunk, true);
 	return {
 		chunk,
 		head,
@@ -187,54 +163,4 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 	};
 }
 
-function get_escaped_char(char: string) {
-	switch (char) {
-		case "\n":
-			return "\\n";
-		case "\r":
-			return "\\r";
-		case "\t":
-			return "\\t";
-		case "\f":
-			return "\\f";
-		case "\u2028":
-			return "\\u2028";
-		case "\u2029":
-			return "\\u2029";
-		case "\b":
-			return "\\b";
-		case '"':
-			return '\\"';
-		case "<":
-			return "\\u003C";
-		case "\\":
-			return "\\\\";
-		default:
-			return char < " "
-				? `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`
-				: "";
-	}
-}
-
-function stringify_primitive(thing: unknown): string {
-	const type = typeof thing;
-	if (type === "string") {
-		return stringify_string(thing as string);
-	}
-	if (thing instanceof String) {
-		return stringify_string(thing.toString());
-	}
-	if (thing === void 0) {
-		return "undefined";
-	}
-	if (thing === 0 && 1 / thing < 0) {
-		return "0";
-	}
-	if (type === "bigint") {
-		// eslint-disable-next-line @typescript-eslint/no-base-to-string
-		return `["BigInt","${thing}"]`;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/no-base-to-string
-	return String(thing);
-}
+/* eslint-enable @typescript-eslint/restrict-template-expressions */
