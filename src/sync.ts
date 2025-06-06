@@ -8,8 +8,6 @@ import { StringifyOptions } from "./types.js";
 
 type Primitive = bigint | boolean | number | string;
 
-type StringType = [false, string] | [true, string];
-
 const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
 	.sort()
 	.join("\0");
@@ -73,9 +71,8 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 	let index = 0;
 
 	function introspect(thing: unknown): Chunk {
-		index++;
 		const existing = values.get(thing);
-		if (existing) {
+		if (existing !== undefined) {
 			refs.add(existing);
 
 			return {
@@ -84,7 +81,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 			};
 		}
 
-		values.set(thing, index);
+		values.set(thing, ++index);
 
 		if (is_primitive(thing)) {
 			return {
@@ -116,24 +113,38 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 	}
 
 	type Tail = [number, string][];
-	function print(part: Chunk, force?: boolean): [string, Tail] {
+	let refCount = 0;
+
+	const refMap: Record<number, number> = {};
+	function getRefIdForIndex(index: number): number {
+		if (index === 1) {
+			// special handling for self-referencing objects at top level
+			return 0;
+		}
+		if (refMap[index]) {
+			return refMap[index];
+		}
+		refMap[index] = ++refCount;
+		return refMap[index];
+	}
+
+	function print(part: Chunk, force: boolean): [string, Tail] {
+		if (part.type === "ref") {
+			const refId = getRefIdForIndex(part.index);
+			return [`"$${refId}"`, []];
+		}
 		if (refs.has(part.index) && !force) {
 			const [head, tail] = print(part, true);
-			return [
-				`\n${part.index}\n`,
-				[
-					//
-					[part.index, head],
-					...tail,
-				],
-			];
+
+			const refId = getRefIdForIndex(part.index);
+			return [`"$${refId}"`, [[refId, head], ...tail]];
 		}
 		let headAggregate = "";
 		const tailAggregate: Tail = [];
 
 		switch (part.type) {
 			case "array": {
-				const parts = part.value.map((v) => print(v));
+				const parts = part.value.map((v) => print(v, false));
 
 				headAggregate += `[${parts.map(([head]) => head).join(",")}]`;
 
@@ -146,7 +157,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 				headAggregate += "{";
 				let isFirst = true;
 				for (const [key, value] of Object.entries(part.value)) {
-					const [h, t] = print(value);
+					const [h, t] = print(value, false);
 					if (!isFirst) {
 						headAggregate += ",";
 					}
@@ -157,12 +168,11 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 				headAggregate += "}";
 				break;
 			}
-			case "primitive":
+			case "primitive": {
 				headAggregate += stringify_primitive(part.value);
+
 				break;
-			case "ref":
-				headAggregate += `\n${part.index}\n`;
-				break;
+			}
 		}
 
 		return [headAggregate, tailAggregate];
@@ -170,14 +180,11 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 
 	const chunk = introspect(value);
 	const [head, tail] = print(chunk, true);
-	return [
+	return {
+		chunk,
 		head,
-		{
-			chunk,
-			head,
-			tail,
-		},
-	] as const;
+		tail,
+	};
 }
 
 function get_escaped_char(char: string) {

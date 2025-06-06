@@ -4,20 +4,21 @@ import { stringifySync } from "./sync.js";
 
 test("string", () => {
 	const source = "hello";
-	const [str] = stringifySync(source);
+	const meta = stringifySync(source);
 
-	expect(str).toBe(`"${source}"`);
+	expect(meta.head).toBe(`"${source}"`);
 
-	expect(JSON.parse(str)).toEqual(source);
+	expect(JSON.parse(meta.head)).toEqual(source);
+	expect(meta.tail).toEqual([]);
 });
 
 test("number", () => {
 	const source = 1;
-	const [str] = stringifySync(source);
+	const meta = stringifySync(source);
 
-	expect(str).toBe("1");
+	expect(meta.head).toBe("1");
 
-	expect(JSON.parse(str)).toEqual(source);
+	expect(JSON.parse(meta.head)).toEqual(source);
 });
 
 test("object", () => {
@@ -26,16 +27,16 @@ test("object", () => {
 		b: 2,
 		c: 3,
 	};
-	const [str, meta] = stringifySync(source);
+	const meta = stringifySync(source);
 
 	expect(meta.head).toMatchInlineSnapshot(`"{"a":1,"b":2,"c":3}"`);
 
-	expect(str).toBe(`{"a":1,"b":2,"c":3}`);
+	expect(meta.head).toBe(`{"a":1,"b":2,"c":3}`);
 
-	expect(JSON.parse(str)).toEqual(source);
+	expect(JSON.parse(meta.head)).toEqual(source);
 });
 
-test("duplicate", () => {
+test("duplicate values", () => {
 	const someObj = {
 		foo: "bar",
 	};
@@ -43,60 +44,61 @@ test("duplicate", () => {
 	const source = {
 		a: someObj,
 		b: someObj,
+		c: someObj,
 	};
 
-	const [str, meta] = stringifySync(source);
+	const meta = stringifySync(source);
 
-	expect(meta.head).toMatchInlineSnapshot(`
-		"{"a":
-		2
-		,"b":
-		2
-		}"
-	`);
+	expect(JSON.parse(meta.head)).toEqual({
+		a: "$1",
+		b: "$1",
+		c: "$1",
+	});
+
 	expect(meta.tail).toMatchInlineSnapshot(`
 		[
 		  [
-		    2,
+		    1,
 		    "{"foo":"bar"}",
-		  ],
-		  [
-		    2,
-		    "
-		2
-		",
 		  ],
 		]
 	`);
-	expect(str).toMatchInlineSnapshot(`
-		"{"a":
-		2
-		,"b":
-		2
-		}"
-	`);
+	expect(meta.head).toMatchInlineSnapshot(`"{"a":"$1","b":"$1","c":"$1"}"`);
 });
+
+test("duplicate keys", () => {
+	const key = "someReallyLongObnoxiousKey";
+	const source = [
+		{
+			[key]: 1,
+		},
+		{
+			[key]: 2,
+		},
+	];
+
+	const meta = stringifySync(source);
+
+	expect(meta.head).toMatchInlineSnapshot(
+		`"[{"someReallyLongObnoxiousKey":1},{"someReallyLongObnoxiousKey":2}]"`,
+	);
+	expect(meta.tail).toMatchInlineSnapshot(`[]`);
+	expect(meta.head).toMatchInlineSnapshot(
+		`"[{"someReallyLongObnoxiousKey":1},{"someReallyLongObnoxiousKey":2}]"`,
+	);
+});
+
 test("self-referencing object", () => {
 	const source: Record<string, unknown> = {
 		foo: "bar",
 		self: null,
 	};
 	source.self = source;
-	const [str, meta] = stringifySync(source);
+	const meta = stringifySync(source);
 
-	expect(meta.head).toMatchInlineSnapshot(`
-		"{"foo":"bar","self":
-		1
-		}"
-	`);
-	expect(meta.tail).toMatchInlineSnapshot(`
-		[
-		  [
-		    1,
-		    "
-		1
-		",
-		  ],
-		]
-	`);
+	expect(JSON.parse(meta.head)).toEqual({
+		foo: "bar",
+		self: "$0",
+	});
+	expect(meta.tail).toEqual([]);
 });
