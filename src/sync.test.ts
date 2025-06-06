@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 
-import { stringifySync } from "./sync.js";
+import { serializeSync } from "./sync.js";
 
 test("string", () => {
 	const source = "hello";
-	const meta = stringifySync(source);
+	const meta = serializeSync(source);
 
 	expect(meta.head).toBe(source);
 	expect(meta.tail).toEqual([]);
@@ -12,7 +12,7 @@ test("string", () => {
 
 test("number", () => {
 	const source = 1;
-	const meta = stringifySync(source);
+	const meta = serializeSync(source);
 
 	expect(meta.head).toBe(1);
 	expect(meta.tail).toEqual([]);
@@ -24,7 +24,7 @@ test("object", () => {
 		b: 2,
 		c: 3,
 	};
-	const meta = stringifySync(source);
+	const meta = serializeSync(source);
 
 	expect(meta.head).toEqual(source);
 	expect(meta.tail).toEqual([]);
@@ -45,7 +45,7 @@ test("duplicate values", () => {
 		4: someObj2,
 	};
 
-	const meta = stringifySync(source);
+	const meta = serializeSync(source);
 
 	expect(meta.head).toEqual({
 		1: "$1",
@@ -78,11 +78,34 @@ test("self-referencing object", () => {
 		self: null,
 	};
 	source.self = source;
-	const meta = stringifySync(source);
+	const meta = serializeSync(source);
 
 	expect(meta.head).toEqual({
 		foo: "bar",
 		self: "$0",
 	});
 	expect(meta.tail).toEqual([]);
+});
+
+test.fails("fixme: custom types", () => {
+	const source = {
+		bigint: 1n,
+	};
+
+	const meta = serializeSync(source, {
+		reducers: {
+			BigInt: (value) => {
+				if (typeof value !== "bigint") {
+					return false;
+				}
+				return value.toString();
+			},
+		},
+	});
+
+	expect(meta.head).toEqual({
+		bigint: "$1",
+	});
+
+	expect(meta.tail).toMatchInlineSnapshot();
 });

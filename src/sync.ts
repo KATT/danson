@@ -4,40 +4,28 @@
  * We're making a json stringifier that can be used to serialize and deserialize data.
  */
 
-import { StringifyOptions } from "./types.js";
+import { counter, isJsonPrimitive, StringifyOptions } from "./utils.js";
 
 const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
 	.sort()
 	.join("\0");
+
 type JsonArray = JsonValue[] | readonly JsonValue[];
 
 interface JsonObject {
 	[key: number | string]: JsonValue;
 	[key: symbol]: never;
 }
-
 type JsonPrimitive = boolean | null | number | string;
+
 type JsonValue = JsonArray | JsonObject | JsonPrimitive;
-export function is_plain_object(
-	thing: unknown,
-): thing is Record<string, unknown> {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-	const proto = Object.getPrototypeOf(thing);
 
-	return (
-		proto === Object.prototype ||
-		proto === null ||
-		Object.getOwnPropertyNames(proto).sort().join("\0") === object_proto_names
-	);
-}
-export function is_primitive(thing: unknown): thing is JsonPrimitive {
-	const type = typeof thing;
-	return type === "boolean" || type === "number" || type === "string";
-}
+export function serializeSync(value: unknown, options: StringifyOptions = {}) {
+	const values = new Map<unknown, Index>();
 
-export function stringifySync(value: unknown, options: StringifyOptions = {}) {
-	const values = new Map<unknown, number>();
-	type Chunk = { index: number } & (
+	const incrementIndex = counter<"index">();
+	type Index = ReturnType<typeof incrementIndex>;
+	type Chunk = { index: Index } & (
 		| {
 				type: "array";
 				value: Chunk[];
@@ -54,24 +42,22 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 				type: "ref";
 		  }
 	);
-	const refs = new Set<number>();
-
-	let index = 0;
+	const knownDuplicates = new Set<Index>();
 
 	function introspect(thing: unknown): Chunk {
 		const existing = values.get(thing);
 		if (existing !== undefined) {
-			refs.add(existing);
+			knownDuplicates.add(existing);
 
 			return {
 				index: existing,
 				type: "ref",
 			};
 		}
+		const index = incrementIndex();
+		values.set(thing, index);
 
-		values.set(thing, ++index);
-
-		if (is_primitive(thing)) {
+		if (isJsonPrimitive(thing)) {
 			return {
 				index,
 				type: "primitive",
@@ -79,7 +65,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 			};
 		}
 
-		if (is_plain_object(thing)) {
+		if (isPlainObject(thing)) {
 			return {
 				index,
 				type: "object",
@@ -100,20 +86,22 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		throw new Error("unimplemented");
 	}
 
-	type Tail = [number, JsonValue][];
-	let refCount = 0;
+	const refCounter = counter<"ref">();
+	type RefId = ReturnType<typeof refCounter>;
 
-	const refMap: Record<number, number> = {};
-	function getRefIdForIndex(index: number): number {
+	type Tail = [RefId, JsonValue][];
+
+	const refToIndexRecord: Record<Index, RefId> = {};
+	function getRefIdForIndex(index: Index): RefId {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return 0;
+			return 0 as RefId;
 		}
-		if (refMap[index]) {
-			return refMap[index];
+		if (refToIndexRecord[index]) {
+			return refToIndexRecord[index];
 		}
-		refMap[index] = ++refCount;
-		return refMap[index];
+		refToIndexRecord[index] = refCounter();
+		return refToIndexRecord[index];
 	}
 
 	function toJson(part: Chunk, force: boolean): [JsonValue, Tail] {
@@ -121,7 +109,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 			const refId = getRefIdForIndex(part.index);
 			return [`$${refId}`, []];
 		}
-		if (refs.has(part.index) && !force) {
+		if (knownDuplicates.has(part.index) && !force) {
 			const [head, tail] = toJson(part, true);
 
 			const refId = getRefIdForIndex(part.index);
@@ -161,6 +149,17 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 		head,
 		tail,
 	};
+}
+
+function isPlainObject(thing: unknown): thing is Record<string, unknown> {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	const proto = Object.getPrototypeOf(thing);
+
+	return (
+		proto === Object.prototype ||
+		proto === null ||
+		Object.getOwnPropertyNames(proto).sort().join("\0") === object_proto_names
+	);
 }
 
 /* eslint-enable @typescript-eslint/restrict-template-expressions */

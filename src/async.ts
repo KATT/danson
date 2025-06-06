@@ -1,6 +1,6 @@
 import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
-import { ParseOptions, StringifyOptions } from "./types.js";
+import { ParseOptions, StringifyOptions } from "./utils.js";
 
 type Branded<T, Brand> = T & { __brand: Brand };
 
