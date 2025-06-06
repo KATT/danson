@@ -23,12 +23,25 @@ interface JsonObject {
 }
 type JsonPrimitive = boolean | null | number | string;
 
+const $1_like_string_re = /^\$\d+$/;
+
+type $1LikeString = `$${string}`;
+
 type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const reducers = options.reducers ?? {};
 	type ReducerName = Branded<string, "reducer">;
 	const values = new Map<unknown, Index>();
+
+	const badReducerNames = Object.keys(reducers).filter((name) =>
+		name.startsWith("_"),
+	);
+	if (badReducerNames.length > 0) {
+		throw new Error(
+			`Reducer names cannot start with "_": ${badReducerNames.join(", ")}`,
+		);
+	}
 
 	const incrementIndex = counter<"index">();
 	type Index = ReturnType<typeof incrementIndex>;
@@ -37,6 +50,10 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 				name: ReducerName;
 				type: "custom";
 				value: Chunk;
+		  }
+		| {
+				type: "$1-like-string";
+				value: $1LikeString;
 		  }
 		| {
 				type: "array";
@@ -84,6 +101,14 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
+			if (is$1LikeString(thing)) {
+				// special handling - things like "$1"
+				return {
+					index,
+					type: "$1-like-string",
+					value: thing,
+				};
+			}
 			return {
 				index,
 				type: "primitive",
@@ -115,11 +140,8 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const refCounter = counter<"ref">();
 	type RefId = ReturnType<typeof refCounter>;
 
-	type Tail = (
-		| [RefId, JsonValue]
-		// reducer value
-		| [RefId, keyof typeof reducers, JsonValue]
-	)[];
+	type TailValue = [RefId, JsonValue] | [RefId, ReducerName, JsonValue];
+	type Tail = TailValue[];
 
 	const refToIndexRecord: Record<Index, RefId> = {};
 	function getRefIdForIndex(index: Index): RefId {
@@ -147,6 +169,15 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 
 		switch (chunk.type) {
+			case "$1-like-string": {
+				const head = chunk.value;
+				const tail: TailValue = [
+					getRefIdForIndex(chunk.index),
+					"_$" as ReducerName,
+					head,
+				];
+				return [head, [tail]];
+			}
 			case "array": {
 				const parts = chunk.value.map((v) => toJson(v, false));
 
@@ -192,6 +223,10 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		head,
 		tail,
 	};
+}
+
+function is$1LikeString(thing: unknown): thing is $1LikeString {
+	return typeof thing === "string" && $1_like_string_re.test(thing);
 }
 
 function isPlainObject(thing: unknown): thing is Record<string, unknown> {

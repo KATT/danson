@@ -234,3 +234,26 @@ test("custom complex type", () => {
 		]
 	`);
 });
+
+test("special handling - strings with $", () => {
+	const source = {
+		foo: "$1",
+	};
+
+	const meta = serializeSync(source);
+
+	expect(meta.head).toEqual({
+		foo: "$1",
+	});
+
+	expect(meta.tail).not.toEqual([]);
+	expect(meta.tail).toMatchInlineSnapshot(`
+		[
+		  [
+		    1,
+		    "_$",
+		    "$1",
+		  ],
+		]
+	`);
+});
