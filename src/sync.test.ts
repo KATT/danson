@@ -61,18 +61,18 @@ test("duplicate values", () => {
 
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": [
-		    1,
-		    {
+		  "1": {
+		    "type": "ref",
+		    "value": {
 		      "a": 1,
 		    },
-		  ],
-		  "2": [
-		    2,
-		    {
+		  },
+		  "2": {
+		    "type": "ref",
+		    "value": {
 		      "b": 2,
 		    },
-		  ],
+		  },
 		}
 	`);
 
@@ -115,7 +115,7 @@ test("custom simple type", () => {
 		},
 	});
 
-	expect(meta.chunk).toMatchInlineSnapshot(`
+	expect(meta.ast).toMatchInlineSnapshot(`
 		{
 		  "index": 1,
 		  "type": "object",
@@ -138,13 +138,14 @@ test("custom simple type", () => {
 		bigint: "$1",
 	});
 
+	expect(meta.tail).not.toEqual({});
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": [
-		    1,
-		    "BigInt",
-		    "1",
-		  ],
+		  "1": {
+		    "reducerName": "BigInt",
+		    "type": "reducer",
+		    "value": "1",
+		  },
 		}
 	`);
 
@@ -178,7 +179,7 @@ test("custom complex type", () => {
 		},
 	});
 
-	expect(meta.chunk).toMatchInlineSnapshot(`
+	expect(meta.ast).toMatchInlineSnapshot(`
 		{
 		  "index": 1,
 		  "type": "object",
@@ -238,10 +239,10 @@ test("custom complex type", () => {
 
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": [
-		    1,
-		    "Map",
-		    [
+		  "1": {
+		    "reducerName": "Map",
+		    "type": "reducer",
+		    "value": [
 		      [
 		        "a",
 		        1,
@@ -251,7 +252,7 @@ test("custom complex type", () => {
 		        2,
 		      ],
 		    ],
-		  ],
+		  },
 		}
 	`);
 
@@ -281,11 +282,11 @@ test("special handling - strings with $", () => {
 	expect(meta.tail).not.toEqual({});
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": [
-		    1,
-		    "_$",
-		    "$1",
-		  ],
+		  "1": {
+		    "reducerName": "_$",
+		    "type": "reducer",
+		    "value": "$1",
+		  },
 		}
 	`);
 });

@@ -40,7 +40,7 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			// Stylistic concerns that don't interfere with Prettier
+			"@typescript-eslint/switch-exhaustiveness-check": "error",
 			"logical-assignment-operators": [
 				"error",
 				"always",

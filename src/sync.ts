@@ -9,36 +9,41 @@ import {
 	counter,
 	CounterFn,
 	isJsonPrimitive,
-	JsonArray,
 	JsonObject,
 	JsonPrimitive,
 	JsonValue,
 } from "./utils.js";
 
-type $1LikeString = `$${string}`;
-const $1LikeStringRegex = /^\$\d+$/;
-function is$1LikeString(thing: unknown): thing is $1LikeString {
-	return typeof thing === "string" && $1LikeStringRegex.test(thing);
+type RefLikeString = `$${number}`;
+const refLikeStringRegex = /^\$\d+$/;
+function isRefLikeString(thing: unknown): thing is RefLikeString {
+	return typeof thing === "string" && refLikeStringRegex.test(thing);
 }
 
 type Index = ReturnType<CounterFn<"index">>;
-type Chunk = { index: Index } & (
+
+/**
+ * Abstract Syntax Tree (AST)
+ *
+ * This is the internal representation of the data that we're serializing.
+ * It's a tree of nodes that represent the data.
+ *
+ * The tree is constructed by the `introspect` function.
+ *
+ */
+type AST = { index: Index } & (
 	| {
 			name: ReducerName;
 			type: "custom";
-			value: Chunk;
-	  }
-	| {
-			type: "$1-like-string";
-			value: $1LikeString;
+			value: AST;
 	  }
 	| {
 			type: "array";
-			value: Chunk[];
+			value: AST[];
 	  }
 	| {
 			type: "object";
-			value: Record<string, Chunk>;
+			value: Record<string, AST>;
 	  }
 	| {
 			type: "primitive";
@@ -47,15 +52,25 @@ type Chunk = { index: Index } & (
 	| {
 			type: "ref";
 	  }
+	| {
+			type: "ref-like-string";
+			value: RefLikeString;
+	  }
 );
 type ReducerName = Branded<string, "reducer">;
 
 type RefId = ReturnType<CounterFn<"ref">>;
 
-type TailValueReducer = [RefId, ReducerName, JsonValue];
-type TailValueRef = [RefId, JsonValue];
-type TailValue = TailValueReducer | TailValueRef;
-type TailList = TailValue[];
+type TailValue =
+	| {
+			reducerName: ReducerName;
+			type: "reducer";
+			value: JsonValue;
+	  }
+	| {
+			type: "ref";
+			value: JsonValue;
+	  };
 type TailRecord = Record<RefId, TailValue>;
 
 export interface SerializeOptions {
@@ -83,7 +98,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 
 	const knownDuplicates = new Set<Index>();
 
-	function introspect(thing: unknown): Chunk {
+	function introspect(thing: unknown): AST {
 		const existing = values.get(thing);
 		if (existing !== undefined) {
 			knownDuplicates.add(existing);
@@ -111,11 +126,11 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
-			if (is$1LikeString(thing)) {
+			if (isRefLikeString(thing)) {
 				// special handling - things like "$1"
 				return {
 					index,
-					type: "$1-like-string",
+					type: "ref-like-string",
 					value: thing,
 				};
 			}
@@ -161,78 +176,68 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		return refToIndexRecord[index];
 	}
 
-	function toJson(chunk: Chunk, force: boolean): [JsonValue, TailRecord] {
+	const tail: TailRecord = {};
+	function toJson(chunk: AST, force: boolean): JsonValue {
 		if (chunk.type === "ref") {
 			const refId = getRefIdForIndex(chunk.index);
-			return [`$${refId}`, {}];
+			return `$${refId}`;
 		}
 		if (knownDuplicates.has(chunk.index) && !force) {
-			const [head, tail] = toJson(chunk, true);
+			const head = toJson(chunk, true);
 
 			const refId = getRefIdForIndex(chunk.index);
-			return [
-				`$${refId}`,
-				{
-					[refId]: [refId, head],
-					...tail,
-				},
-			];
+
+			tail[refId] = {
+				type: "ref",
+				value: head,
+			};
+			return `$${refId}`;
 		}
 
 		switch (chunk.type) {
-			case "$1-like-string": {
-				const refId = getRefIdForIndex(chunk.index);
-				const head = chunk.value;
-				const tail: TailValue = [refId, "_$" as ReducerName, head];
-				return [
-					head,
-					{
-						[refId]: tail,
-					},
-				];
-			}
 			case "array": {
-				const parts = chunk.value.map((v) => toJson(v, false));
-
-				const head: JsonArray = parts.map(([head]) => head);
-
-				const tail: TailRecord = {};
-				for (const [, t] of parts) {
-					Object.assign(tail, t);
-				}
-				return [head, tail];
+				return chunk.value.map((v) => toJson(v, false));
 			}
 			case "custom": {
 				const refId = getRefIdForIndex(chunk.index);
-				const [head, tail] = toJson(chunk.value, false);
+				const tailValue = toJson(chunk.value, false);
 
-				Object.assign(tail, {
-					[refId]: [refId, chunk.name, head],
-				});
-				return [`$${refId}`, tail];
+				tail[refId] = {
+					reducerName: chunk.name,
+					type: "reducer",
+					value: tailValue,
+				};
+
+				return `$${refId}`;
 			}
 			case "object": {
 				const head: JsonObject = {};
-				const tail: TailRecord = {};
 				for (const [key, value] of Object.entries(chunk.value)) {
-					const [h, t] = toJson(value, false);
-
-					head[key] = h;
-					Object.assign(tail, t);
+					head[key] = toJson(value, false);
 				}
-				return [head, tail];
+				return head;
 			}
 			case "primitive": {
-				return [chunk.value, {}];
+				return chunk.value;
+			}
+			case "ref-like-string": {
+				const refId = getRefIdForIndex(chunk.index);
+				const head = chunk.value;
+				tail[refId] = {
+					reducerName: "_$" as ReducerName,
+					type: "reducer",
+					value: head,
+				};
+				return head;
 			}
 		}
 	}
 
-	const chunk = introspect(value);
+	const ast = introspect(value);
 
-	const [head, tail] = toJson(chunk, true);
+	const head = toJson(ast, true);
 	return {
-		chunk,
+		ast,
 		head,
 		tail,
 	};
@@ -244,52 +249,50 @@ export interface DeserializeOptions {
 	tail: TailRecord;
 }
 
-export function tailListToRecord(tail: TailList): TailRecord {
-	const result: TailRecord = {};
-	for (const tailValue of tail) {
-		const [refId] = tailValue;
-		result[refId] = tailValue;
-	}
-	return result;
-}
-
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
-	const refMap = new Map<RefId, unknown>();
+	const refResult = new Map<RefId, unknown>();
 
 	let rootResult: unknown;
 
-	function getTailValueResult(refId: RefId): unknown {
-		if (refMap.has(refId)) {
-			return refMap.get(refId);
+	function getTailResult(refId: RefId): unknown {
+		if (refResult.has(refId)) {
+			return refResult.get(refId);
 		}
+
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const tailValue = options.tail[refId]!;
-		if (tailValue.length === 2) {
-			const [, value] = tailValue;
-			const result = deserializeValue(value);
-			refMap.set(refId, result);
-			return result;
+
+		switch (tailValue.type) {
+			case "reducer": {
+				const reviver = revivers[tailValue.reducerName];
+				if (!reviver) {
+					throw new Error(
+						`No reviver found for reducer: ${tailValue.reducerName}`,
+					);
+				}
+				const result = reviver(tailValue.value);
+				refResult.set(refId, result);
+				return result;
+			}
+			case "ref": {
+				const result = deserializeValue(tailValue.value);
+				refResult.set(refId, result);
+
+				return result;
+			}
 		}
-		const [, reducerName, value] = tailValue;
-		const reviver = revivers[reducerName];
-		if (!reviver) {
-			throw new Error(`No reviver found for reducer: ${reducerName}`);
-		}
-		const result = reviver(value);
-		refMap.set(refId, result);
-		return result;
 	}
 
 	function deserializeValue(value: JsonValue, isRoot = false): unknown {
-		if (is$1LikeString(value)) {
+		if (isRefLikeString(value)) {
 			const refId = Number(value.slice(1)) as RefId;
 			// Special handling for self-referencing objects at top level
 			if (refId === 0) {
 				return rootResult;
 			}
-			return getTailValueResult(refId);
+			return getTailResult(refId);
 		}
 		if (isJsonPrimitive(value)) {
 			return value;
