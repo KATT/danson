@@ -50,6 +50,7 @@ export default tseslint.config(
 			"no-useless-rename": "error",
 			"object-shorthand": "error",
 			"operator-assignment": "error",
+			"perfectionist/sort-modules": "off",
 		},
 		settings: {
 			perfectionist: { partitionByComment: true, type: "natural" },

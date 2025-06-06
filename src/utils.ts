@@ -1,15 +1,15 @@
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
 
-export type JsonArray = JsonValue[] | readonly JsonValue[];
+export type CounterFn<T extends string> = () => Branded<number, T>;
 
+export type JsonArray = JsonValue[] | readonly JsonValue[];
 export interface JsonObject {
 	[key: number | string]: JsonValue;
 	[key: symbol]: never;
 }
-
 export type JsonPrimitive = boolean | null | number | string;
-
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export interface ParseOptions {
 	revivers?: Record<string, (value: unknown) => unknown>;
 }
@@ -21,7 +21,10 @@ export interface SerializeOptions {
 		(value: unknown) => Exclude<JsonValue, boolean> | false
 	>;
 }
-type CounterFn<T extends string> = () => Branded<number, T>;
+
+export interface DeserializeOptions {
+	revivers?: Record<string, (value: unknown) => unknown>;
+}
 
 export function counter<T extends string>(): CounterFn<T> {
 	let i = 0;
@@ -29,7 +32,6 @@ export function counter<T extends string>(): CounterFn<T> {
 		return ++i as number & { _brand: T };
 	};
 }
-
 export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {
 	const type = typeof thing;
 	return type === "boolean" || type === "number" || type === "string";

@@ -7,31 +7,63 @@
 import {
 	Branded,
 	counter,
+	CounterFn,
 	isJsonPrimitive,
-	SerializeOptions,
+	JsonArray,
+	JsonObject,
+	JsonPrimitive,
+	JsonValue,
 } from "./utils.js";
 
-const object_proto_names = Object.getOwnPropertyNames(Object.prototype)
-	.sort()
-	.join("\0");
-
-type JsonArray = JsonValue[] | readonly JsonValue[];
-
-interface JsonObject {
-	[key: number | string]: JsonValue;
-	[key: symbol]: never;
-}
-type JsonPrimitive = boolean | null | number | string;
-
-const $1_like_string_re = /^\$\d+$/;
-
 type $1LikeString = `$${string}`;
+const $1LikeStringRegex = /^\$\d+$/;
+function is$1LikeString(thing: unknown): thing is $1LikeString {
+	return typeof thing === "string" && $1LikeStringRegex.test(thing);
+}
 
-type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+type Index = ReturnType<CounterFn<"index">>;
+type Chunk = { index: Index } & (
+	| {
+			name: ReducerName;
+			type: "custom";
+			value: Chunk;
+	  }
+	| {
+			type: "$1-like-string";
+			value: $1LikeString;
+	  }
+	| {
+			type: "array";
+			value: Chunk[];
+	  }
+	| {
+			type: "object";
+			value: Record<string, Chunk>;
+	  }
+	| {
+			type: "primitive";
+			value: JsonPrimitive;
+	  }
+	| {
+			type: "ref";
+	  }
+);
+type ReducerName = Branded<string, "reducer">;
+
+type RefId = ReturnType<CounterFn<"ref">>;
+type TailValue = [RefId, JsonValue] | [RefId, ReducerName, JsonValue];
+type Tail = TailValue[];
+
+export interface SerializeOptions {
+	coerceError?: (cause: unknown) => unknown;
+	reducers?: Record<
+		string,
+		(value: unknown) => Exclude<JsonValue, boolean> | false
+	>;
+}
 
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const reducers = options.reducers ?? {};
-	type ReducerName = Branded<string, "reducer">;
 	const values = new Map<unknown, Index>();
 
 	const badReducerNames = Object.keys(reducers).filter((name) =>
@@ -44,33 +76,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	}
 
 	const incrementIndex = counter<"index">();
-	type Index = ReturnType<typeof incrementIndex>;
-	type Chunk = { index: Index } & (
-		| {
-				name: ReducerName;
-				type: "custom";
-				value: Chunk;
-		  }
-		| {
-				type: "$1-like-string";
-				value: $1LikeString;
-		  }
-		| {
-				type: "array";
-				value: Chunk[];
-		  }
-		| {
-				type: "object";
-				value: Record<string, Chunk>;
-		  }
-		| {
-				type: "primitive";
-				value: JsonPrimitive;
-		  }
-		| {
-				type: "ref";
-		  }
-	);
+
 	const knownDuplicates = new Set<Index>();
 
 	function introspect(thing: unknown): Chunk {
@@ -138,11 +144,6 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	}
 
 	const refCounter = counter<"ref">();
-	type RefId = ReturnType<typeof refCounter>;
-
-	type TailValue = [RefId, JsonValue] | [RefId, ReducerName, JsonValue];
-	type Tail = TailValue[];
-
 	const refToIndexRecord: Record<Index, RefId> = {};
 	function getRefIdForIndex(index: Index): RefId {
 		if (index === 1) {
@@ -225,10 +226,20 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	};
 }
 
-function is$1LikeString(thing: unknown): thing is $1LikeString {
-	return typeof thing === "string" && $1_like_string_re.test(thing);
+export interface DeserializeOptions {
+	revivers?: Record<string, (value: unknown) => unknown>;
 }
 
+export function deserializeSync<T>(
+	serialized: { head: JsonValue; tail: Tail },
+	options: DeserializeOptions = {},
+): T {
+	throw new Error("not implemented");
+}
+
+const objectProtoNames = Object.getOwnPropertyNames(Object.prototype)
+	.sort()
+	.join("\0");
 function isPlainObject(thing: unknown): thing is Record<string, unknown> {
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	const proto = Object.getPrototypeOf(thing);
@@ -236,7 +247,7 @@ function isPlainObject(thing: unknown): thing is Record<string, unknown> {
 	return (
 		proto === Object.prototype ||
 		proto === null ||
-		Object.getOwnPropertyNames(proto).sort().join("\0") === object_proto_names
+		Object.getOwnPropertyNames(proto).sort().join("\0") === objectProtoNames
 	);
 }
 
