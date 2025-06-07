@@ -28,6 +28,15 @@ export const transformers = {
 		},
 		reviver: (value) => new Map(value as [unknown, unknown][]),
 	},
+	Set: {
+		reducer: (value) => {
+			if (!(value instanceof Set)) {
+				return false;
+			}
+			return Array.from(value.values());
+		},
+		reviver: (value) => new Set(value as unknown[]),
+	},
 	undef: {
 		reducer: (value) => {
 			if (value === undefined) {

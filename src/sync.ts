@@ -316,18 +316,193 @@ export interface DeserializeOptions extends SerializeReturn {
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
 	const refResult = new Map<RefLikeString, unknown>();
+	const inProgress = new Set<RefLikeString>();
+	const circularRefs = new Map<
+		RefLikeString,
+		{ count: number; symbol: unknown }
+	>();
 
 	function getRefResult(refId: RefLikeString): unknown {
 		if (refResult.has(refId)) {
 			return refResult.get(refId);
 		}
 
+		if (inProgress.has(refId)) {
+			// Circular reference detected - increment count and return symbol
+			if (!circularRefs.has(refId)) {
+				circularRefs.set(refId, {
+					count: 0,
+					symbol: Symbol(`circular-${refId}`),
+				});
+			}
+			const circularRef = circularRefs.get(refId)!;
+			circularRef.count++;
+			return circularRef.symbol;
+		}
+
+		inProgress.add(refId);
+
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const refValue = options.refs![refId]!;
 
 		const result = deserializeValue(refValue, refId);
 		refResult.set(refId, result);
+
+		// Fix up any circular references
+		if (circularRefs.has(refId)) {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			const { count, symbol } = circularRefs.get(refId)!;
+			replaceSymbolWithValue(result, {
+				remainingCount: count,
+				replacement: result,
+				symbol,
+			});
+		}
+
+		inProgress.delete(refId);
 		return result;
+	}
+
+	function replaceSymbolWithValue(
+		obj: unknown,
+		options: {
+			remainingCount: number;
+			replacement: unknown;
+			symbol: unknown;
+		},
+	): number {
+		const { replacement, symbol } = options;
+		let { remainingCount } = options;
+
+		if (obj === symbol || remainingCount <= 0) {
+			return remainingCount; // Can't replace the root object with itself, or we're done
+		}
+
+		if (Array.isArray(obj)) {
+			for (let i = 0; i < obj.length && remainingCount > 0; i++) {
+				if (obj[i] === symbol) {
+					obj[i] = replacement;
+					remainingCount--;
+				} else if (typeof obj[i] === "object" && obj[i] !== null) {
+					remainingCount = replaceSymbolWithValue(obj[i], {
+						remainingCount,
+						replacement,
+						symbol,
+					});
+				}
+			}
+			return remainingCount;
+		}
+		if (obj instanceof Map) {
+			// For Maps, we need to handle both keys and values that could be circular
+			let hasSymbol = false;
+			const newEntries: [unknown, unknown][] = [];
+
+			for (const [key, value] of obj.entries()) {
+				let newKey = key;
+				let newValue = value;
+
+				if (key === symbol) {
+					newKey = replacement;
+					hasSymbol = true;
+					remainingCount--;
+				}
+
+				if (value === symbol) {
+					newValue = replacement;
+					hasSymbol = true;
+					remainingCount--;
+				}
+
+				newEntries.push([newKey, newValue]);
+
+				// Recursively process key and value objects
+				if (typeof key === "object" && key !== null && key !== symbol) {
+					remainingCount = replaceSymbolWithValue(key, {
+						remainingCount,
+						replacement,
+						symbol,
+					});
+				}
+
+				if (typeof value === "object" && value !== null && value !== symbol) {
+					remainingCount = replaceSymbolWithValue(value, {
+						remainingCount,
+						replacement,
+						symbol,
+					});
+				}
+
+				if (remainingCount <= 0) {
+					break;
+				}
+			}
+
+			// Rebuild the Map if we found symbols to preserve order
+			if (hasSymbol) {
+				obj.clear();
+				for (const [key, value] of newEntries) {
+					obj.set(key, value);
+				}
+			}
+
+			return remainingCount;
+		}
+		if (obj instanceof Set) {
+			// For Sets, we need to preserve order, so we rebuild if there are symbols
+			let hasSymbol = false;
+			const newValues: unknown[] = [];
+
+			for (const value of obj.values()) {
+				if (value === symbol) {
+					newValues.push(replacement);
+					hasSymbol = true;
+					remainingCount--;
+				} else {
+					newValues.push(value);
+					if (typeof value === "object" && value !== null) {
+						remainingCount = replaceSymbolWithValue(value, {
+							remainingCount,
+							replacement,
+							symbol,
+						});
+					}
+				}
+				if (remainingCount <= 0) {
+					break;
+				}
+			}
+
+			// Rebuild the Set if we found symbols to preserve order
+			if (hasSymbol) {
+				obj.clear();
+				for (const value of newValues) {
+					obj.add(value);
+				}
+			}
+
+			return remainingCount;
+		}
+		if (isPlainObject(obj)) {
+			for (const [key, value] of Object.entries(obj)) {
+				if (remainingCount <= 0) {
+					break;
+				}
+				if (value === symbol) {
+					obj[key] = replacement;
+					remainingCount--;
+				} else if (typeof value === "object" && value !== null) {
+					remainingCount = replaceSymbolWithValue(value, {
+						remainingCount,
+						replacement,
+						symbol,
+					});
+				}
+			}
+			return remainingCount;
+		}
+
+		return remainingCount;
 	}
 
 	function deserializeValue(value: JsonValue, refId?: RefLikeString): unknown {

@@ -208,7 +208,7 @@ test("map", () => {
 	expect(result).toEqual(source);
 });
 
-test.fails("fixme: custom complex type with self reference", () => {
+test("fixme: custom complex type with self reference", () => {
 	const map = new Map<string, unknown>();
 	map.set("a", 1);
 	map.set("b", 2);
@@ -218,6 +218,7 @@ test.fails("fixme: custom complex type with self reference", () => {
 	};
 
 	map.set("self", map);
+	map.set("self2", map);
 
 	const meta = serializeSync(source, {
 		reducers,
@@ -243,6 +244,10 @@ test.fails("fixme: custom complex type with self reference", () => {
 		        ],
 		        [
 		          "self",
+		          "$1",
+		        ],
+		        [
+		          "self2",
 		          "$1",
 		        ],
 		      ],
