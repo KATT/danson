@@ -335,6 +335,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 					symbol: Symbol(`circular-${refId}`),
 				});
 			}
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const circularRef = circularRefs.get(refId)!;
 			circularRef.count++;
 			return circularRef.symbol;
@@ -399,7 +400,9 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 			const newEntries: [unknown, unknown][] = [];
 
 			for (const [key, value] of obj.entries()) {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				let newKey = key;
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				let newValue = value;
 
 				if (key === symbol) {
@@ -507,19 +510,6 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 	function deserializeValue(value: JsonValue, refId?: RefLikeString): unknown {
 		if (isRefLikeString(value)) {
-			// Special handling for $0 - it refers to the root object
-			if (value === "$0" && inProgress.has("$0")) {
-				// Circular reference to root object - return a symbol
-				if (!circularRefs.has("$0")) {
-					circularRefs.set("$0", {
-						count: 0,
-						symbol: Symbol("circular-$0"),
-					});
-				}
-				const circularRef = circularRefs.get("$0")!;
-				circularRef.count++;
-				return circularRef.symbol;
-			}
 			return getRefResult(value);
 		}
 		if (isJsonPrimitive(value)) {
@@ -562,9 +552,6 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 		throw new Error("Deserializing unknown value");
 	}
-
-	// Track that we're deserializing the root object
-	inProgress.add("$0");
 
 	const result = deserializeValue(options.json, "$0") as T;
 
