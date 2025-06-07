@@ -60,17 +60,20 @@ export type ReducerRecord = Record<string, ReducerFn>;
 
 export type RefIndex = ReturnType<CounterFn<"ref">>;
 
-type TailValue =
-	| {
-			reducerName: ReducerName;
-			type: "reducer";
-			value: JsonValue;
-	  }
-	| {
-			type: "ref";
-			value: JsonValue;
-	  };
-type TailRecord = Record<RefLikeString, TailValue>;
+type Satisfies<T, U extends T> = U;
+
+export type CustomValue = Satisfies<
+	JsonObject,
+	{
+		_: "$"; // as it's a reserved string
+		type: ReducerName;
+		value: JsonValue;
+	}
+>;
+
+type RefRecord = Record<RefLikeString, JsonValue>;
+
+const reservedReducerNames = new Set(["string"]);
 
 export interface SerializeSyncInternalOptions extends SerializeOptions {
 	indexCounter: CounterFn<"index">;
@@ -85,13 +88,10 @@ export function serializeSyncInternal(
 ) {
 	const values = new Map<unknown, Index>();
 
-	const badReducerNames = Object.keys(options.reducers).filter((name) =>
-		name.startsWith("_"),
-	);
-	if (badReducerNames.length > 0) {
-		throw new Error(
-			`Reducer names cannot start with "_": ${badReducerNames.join(", ")}`,
-		);
+	for (const name of reservedReducerNames) {
+		if (name in options.reducers) {
+			throw new Error(`${name} is a reserved reducer name`);
+		}
 	}
 
 	const knownDuplicates = new Set<Index>();
@@ -173,7 +173,7 @@ export function serializeSyncInternal(
 		return indexToRefRecord[index];
 	}
 
-	const tail: TailRecord = {};
+	const refs: RefRecord = {};
 	function toJson(chunk: AST, force: boolean): JsonValue {
 		if (chunk.type === "ref") {
 			const refId = getRefIdForIndex(chunk.index);
@@ -183,10 +183,7 @@ export function serializeSyncInternal(
 			const refId = getRefIdForIndex(chunk.index);
 			const head = toJson(chunk, true);
 
-			tail[refId] = {
-				type: "ref",
-				value: head,
-			};
+			refs[refId] = head;
 			return refId;
 		}
 
@@ -195,18 +192,13 @@ export function serializeSyncInternal(
 				return chunk.value.map((v) => toJson(v, false));
 			}
 			case "custom": {
-				const refId = getRefIdForIndex(chunk.index);
-				console.log("get ref for index", chunk, refId);
-
-				const tailValue = toJson(chunk.value, false);
-
-				tail[refId] = {
-					reducerName: chunk.name,
-					type: "reducer",
-					value: tailValue,
+				const customValue: CustomValue = {
+					_: "$",
+					type: chunk.name,
+					value: toJson(chunk.value, false),
 				};
 
-				return refId;
+				return customValue;
 			}
 			case "object": {
 				const head: JsonObject = {};
@@ -219,14 +211,14 @@ export function serializeSyncInternal(
 				return chunk.value;
 			}
 			case "ref-like-string": {
-				const refId = getRefIdForIndex(chunk.index);
 				const head = chunk.value;
-				tail[refId] = {
-					reducerName: "_$" as ReducerName,
-					type: "reducer",
+				const customValue: CustomValue = {
+					_: "$",
+					type: "string" as ReducerName,
 					value: head,
 				};
-				return head;
+
+				return customValue;
 			}
 		}
 	}
@@ -241,7 +233,7 @@ export function serializeSyncInternal(
 		indexToRefRecord,
 		knownDuplicates,
 		refCounter: options.refCounter,
-		tail,
+		refs,
 	};
 }
 
@@ -270,7 +262,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	);
 	return {
 		head: result.head,
-		tail: result.tail,
+		tail: result.refs,
 	};
 }
 
@@ -300,7 +292,7 @@ export function stringifySyncInternal(
 		text: JSON.stringify(
 			{
 				head: result.head,
-				tail: result.tail,
+				tail: result.refs,
 			},
 			null,
 			options.space,
@@ -313,7 +305,7 @@ export type ReviverRecord = Record<string, ReviverFn>;
 export interface DeserializeOptions {
 	head: JsonValue;
 	revivers?: ReviverRecord;
-	tail: TailRecord;
+	tail: RefRecord;
 }
 
 export function deserializeSync<T>(options: DeserializeOptions): T {
@@ -330,25 +322,9 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const tailValue = options.tail[refId]!;
 
-		switch (tailValue.type) {
-			case "reducer": {
-				const reviver = revivers[tailValue.reducerName];
-				if (!reviver) {
-					throw new Error(
-						`No reviver found for reducer: ${tailValue.reducerName}`,
-					);
-				}
-				const result = reviver(tailValue.value);
-				refResult.set(refId, result);
-				return result;
-			}
-			case "ref": {
-				const result = deserializeValue(tailValue.value);
-				refResult.set(refId, result);
-
-				return result;
-			}
-		}
+		const result = deserializeValue(tailValue);
+		refResult.set(refId, result);
+		return result;
 	}
 
 	function deserializeValue(value: JsonValue, isRoot = false): unknown {
@@ -375,6 +351,18 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 		if (isPlainObject(value)) {
 			const result: Record<string, unknown> = {};
+
+			if (value._ === "$") {
+				const tailValue = value as CustomValue;
+				if (tailValue.type === "string") {
+					return tailValue.value;
+				}
+				const reviver = revivers[tailValue.type];
+				if (!reviver) {
+					throw new Error(`No reviver found for reducer: ${tailValue.type}`);
+				}
+				return reviver(tailValue.value);
+			}
 			if (isRoot) {
 				rootResult = result;
 			}
@@ -394,7 +382,7 @@ export interface ParseSyncOptions {
 	revivers?: ReviverRecord;
 }
 export function parseSync<T>(value: string, options?: ParseSyncOptions) {
-	const json = JSON.parse(value) as { head: JsonValue; tail: TailRecord };
+	const json = JSON.parse(value) as { head: JsonValue; tail: RefRecord };
 	return deserializeSync<T>({
 		...options,
 		...json,

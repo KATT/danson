@@ -6,6 +6,7 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
+import { reducers, revivers } from "./test.helpers.js";
 
 test("string", () => {
 	const source = "hello";
@@ -67,16 +68,10 @@ test("duplicate values", () => {
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
 		  "$1": {
-		    "type": "ref",
-		    "value": {
-		      "a": 1,
-		    },
+		    "a": 1,
 		  },
 		  "$2": {
-		    "type": "ref",
-		    "value": {
-		      "b": 2,
-		    },
+		    "b": 2,
 		  },
 		}
 	`);
@@ -110,36 +105,24 @@ test("custom simple type", () => {
 	};
 
 	const meta = serializeSync(source, {
-		reducers: {
-			BigInt: (value) => {
-				if (typeof value !== "bigint") {
-					return false;
-				}
-				return value.toString();
-			},
-		},
+		reducers,
 	});
 
-	expect(meta.head).toEqual({
-		bigint: "$1",
-	});
-
-	expect(meta.tail).not.toEqual({});
-	expect(meta.tail).toMatchInlineSnapshot(`
+	expect(meta.head).toMatchInlineSnapshot(`
 		{
-		  "$1": {
-		    "reducerName": "BigInt",
-		    "type": "reducer",
+		  "bigint": {
+		    "_": "$",
+		    "type": "BigInt",
 		    "value": "1",
 		  },
 		}
 	`);
 
+	expect(meta.tail).toEqual({});
+
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers: {
-			BigInt: (value) => BigInt(value as string),
-		},
+		revivers,
 	});
 
 	expect(result).toEqual(source);
@@ -167,15 +150,9 @@ test("custom complex type", () => {
 
 	expect(meta.head).toMatchInlineSnapshot(`
 		{
-		  "map": "$1",
-		}
-	`);
-
-	expect(meta.tail).toMatchInlineSnapshot(`
-		{
-		  "$1": {
-		    "reducerName": "Map",
-		    "type": "reducer",
+		  "map": {
+		    "_": "$",
+		    "type": "Map",
 		    "value": [
 		      [
 		        "a",
@@ -190,6 +167,8 @@ test("custom complex type", () => {
 		}
 	`);
 
+	expect(meta.tail).toMatchInlineSnapshot(`{}`);
+
 	const result = deserializeSync<typeof source>({
 		...meta,
 		revivers: {
@@ -202,27 +181,29 @@ test("custom complex type", () => {
 	expect(result).toEqual(source);
 });
 
-test("special handling - strings with $", () => {
+test("special handling - ref-like strings", () => {
 	const source = {
 		foo: "$1",
 	};
 
 	const meta = serializeSync(source);
 
-	expect(meta.head).toEqual({
-		foo: "$1",
-	});
-
-	expect(meta.tail).not.toEqual({});
-	expect(meta.tail).toMatchInlineSnapshot(`
+	expect(meta.head).toMatchInlineSnapshot(`
 		{
-		  "$1": {
-		    "reducerName": "_$",
-		    "type": "reducer",
+		  "foo": {
+		    "_": "$",
+		    "type": "string",
 		    "value": "$1",
 		  },
 		}
 	`);
+
+	const result = deserializeSync<typeof source>({
+		...meta,
+		revivers,
+	});
+
+	expect(result).toEqual(source);
 });
 
 test("stringify object", () => {
@@ -245,12 +226,9 @@ test("stringify object", () => {
 		  },
 		  "tail": {
 		    "$1": {
-		      "type": "ref",
-		      "value": {
-		        "a": 1,
-		        "b": 2,
-		        "c": 3
-		      }
+		      "a": 1,
+		      "b": 2,
+		      "c": 3
 		    }
 		  }
 		}"
@@ -279,15 +257,13 @@ test("stringify custom type", () => {
 	expect(str).toMatchInlineSnapshot(`
 		"{
 		  "head": {
-		    "bigint": "$1"
-		  },
-		  "tail": {
-		    "$1": {
-		      "reducerName": "BigInt",
-		      "type": "reducer",
+		    "bigint": {
+		      "_": "$",
+		      "type": "BigInt",
 		      "value": "1"
 		    }
-		  }
+		  },
+		  "tail": {}
 		}"
 	`);
 

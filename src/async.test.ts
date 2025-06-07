@@ -1,75 +1,7 @@
-import http from "node:http";
-import { AddressInfo } from "node:net";
 import { expect, test } from "vitest";
 
 import { parseAsync, stringifyAsync } from "./async.js";
-import {
-	ReducerFn,
-	ReducerRecord,
-	ReviverFn,
-	ReviverRecord,
-	serializeSyncInternal,
-	stringifySync,
-	stringifySyncInternal,
-} from "./sync.js";
 import { aggregateAsyncIterable, sleep, waitError } from "./test.utils.js";
-import { counter } from "./utils.js";
-
-const transformers = {
-	BigInt: {
-		reducer: (value) => {
-			if (typeof value !== "bigint") {
-				return false;
-			}
-			return value.toString();
-		},
-		reviver: (value) => BigInt(value as string),
-	},
-	Date: {
-		reducer: (value) => {
-			if (!(value instanceof Date)) {
-				return false;
-			}
-			return value.toJSON();
-		},
-		reviver: (value) => new Date(value as string),
-	},
-} satisfies Record<
-	string,
-	{
-		reducer: ReducerFn;
-		reviver: ReviverFn;
-	}
->;
-
-const reducers: ReducerRecord = {
-	...Object.fromEntries(
-		Object.entries(transformers).map(([key, { reducer }]) => [key, reducer]),
-	),
-};
-
-const revivers: ReviverRecord = {
-	...Object.fromEntries(
-		Object.entries(transformers).map(([key, { reviver }]) => [key, reviver]),
-	),
-};
-
-function serverResource(
-	handler: (req: http.IncomingMessage, res: http.ServerResponse) => void,
-) {
-	const server = http.createServer(handler);
-	server.listen(0);
-	const port = (server.address() as AddressInfo).port;
-
-	const url = `http://localhost:${String(port)}`;
-
-	return {
-		[Symbol.dispose]() {
-			server.close();
-		},
-		url,
-	};
-}
 
 test("stringify promise", async () => {
 	const source = () => ({
