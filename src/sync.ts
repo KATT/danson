@@ -54,9 +54,11 @@ type AST = { index: Index } & (
 			value: RefLikeString;
 	  }
 );
-type ReducerName = Branded<string, "reducer">;
+export type ReducerName = Branded<string, "reducer">;
+export type ReducerFn = (value: unknown) => unknown;
+export type ReducerRecord = Record<string, ReducerFn>;
 
-type RefId = ReturnType<CounterFn<"ref">>;
+export type RefIndex = ReturnType<CounterFn<"ref">>;
 
 type TailValue =
 	| {
@@ -68,21 +70,22 @@ type TailValue =
 			type: "ref";
 			value: JsonValue;
 	  };
-type TailRecord = Record<RefId, TailValue>;
+type TailRecord = Record<RefLikeString, TailValue>;
 
-export interface SerializeOptions {
-	coerceError?: (cause: unknown) => unknown;
-	reducers?: Record<
-		string,
-		(value: unknown) => Exclude<JsonValue, boolean> | false
-	>;
+export interface SerializeSyncInternalOptions extends SerializeOptions {
+	indexCounter: CounterFn<"index">;
+	indexToRefRecord: Record<Index, RefIndex>;
+	knownDuplicates: Set<Index>;
+	reducers: ReducerRecord;
+	refCounter: CounterFn<"ref">;
 }
-
-export function serializeSync(value: unknown, options: SerializeOptions = {}) {
-	const reducers = options.reducers ?? {};
+export function serializeSyncInternal(
+	value: unknown,
+	options: SerializeSyncInternalOptions,
+) {
 	const values = new Map<unknown, Index>();
 
-	const badReducerNames = Object.keys(reducers).filter((name) =>
+	const badReducerNames = Object.keys(options.reducers).filter((name) =>
 		name.startsWith("_"),
 	);
 	if (badReducerNames.length > 0) {
@@ -90,8 +93,6 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			`Reducer names cannot start with "_": ${badReducerNames.join(", ")}`,
 		);
 	}
-
-	const incrementIndex = counter<"index">();
 
 	const knownDuplicates = new Set<Index>();
 
@@ -105,10 +106,10 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 				type: "ref",
 			};
 		}
-		const index = incrementIndex();
+		const index = options.indexCounter();
 		values.set(thing, index);
 
-		for (const [name, fn] of Object.entries(reducers)) {
+		for (const [name, fn] of Object.entries(options.reducers)) {
 			const value = fn(thing);
 			if (value === false) {
 				continue;
@@ -156,39 +157,37 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			};
 		}
 
-		throw new Error("unimplemented");
+		// eslint-disable-next-line @typescript-eslint/no-base-to-string
+		throw new Error(`Do not know how to serialize ${thing}`);
 	}
 
-	const refCounter = counter<"ref">();
-	const refToIndexRecord: Record<Index, RefId> = {};
-	function getRefIdForIndex(index: Index): RefId {
+	const indexToRefRecord: Record<Index, RefLikeString> = {};
+	function getRefIdForIndex(index: Index): RefLikeString {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return 0 as RefId;
+			return "$0";
 		}
-		if (refToIndexRecord[index]) {
-			return refToIndexRecord[index];
-		}
-		refToIndexRecord[index] = refCounter();
-		return refToIndexRecord[index];
+
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		indexToRefRecord[index] ??= `$${options.refCounter()}`;
+		return indexToRefRecord[index];
 	}
 
 	const tail: TailRecord = {};
 	function toJson(chunk: AST, force: boolean): JsonValue {
 		if (chunk.type === "ref") {
 			const refId = getRefIdForIndex(chunk.index);
-			return `$${refId}`;
+			return refId;
 		}
 		if (knownDuplicates.has(chunk.index) && !force) {
-			const head = toJson(chunk, true);
-
 			const refId = getRefIdForIndex(chunk.index);
+			const head = toJson(chunk, true);
 
 			tail[refId] = {
 				type: "ref",
 				value: head,
 			};
-			return `$${refId}`;
+			return refId;
 		}
 
 		switch (chunk.type) {
@@ -197,6 +196,8 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			}
 			case "custom": {
 				const refId = getRefIdForIndex(chunk.index);
+				console.log("get ref for index", chunk, refId);
+
 				const tailValue = toJson(chunk.value, false);
 
 				tail[refId] = {
@@ -205,7 +206,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 					value: tailValue,
 				};
 
-				return `$${refId}`;
+				return refId;
 			}
 			case "object": {
 				const head: JsonObject = {};
@@ -233,37 +234,82 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const ast = introspect(value);
 
 	const head = toJson(ast, true);
+
 	return {
 		ast,
 		head,
+		indexToRefRecord,
+		knownDuplicates,
+		refCounter: options.refCounter,
 		tail,
+	};
+}
+
+export interface SerializeOptions {
+	coerceError?: (cause: unknown) => unknown;
+	reducers?: ReducerRecord;
+}
+
+export function serializeSyncInternalOptions<T extends SerializeOptions>(
+	options: T,
+): Omit<T, keyof SerializeSyncInternalOptions> & SerializeSyncInternalOptions {
+	return {
+		...options,
+		indexCounter: counter(),
+		indexToRefRecord: {},
+		knownDuplicates: new Set(),
+		reducers: options.reducers ?? {},
+		refCounter: counter(),
+	};
+}
+
+export function serializeSync(value: unknown, options: SerializeOptions = {}) {
+	const result = serializeSyncInternal(
+		value,
+		serializeSyncInternalOptions(options),
+	);
+	return {
+		head: result.head,
+		tail: result.tail,
 	};
 }
 
 export interface StringifyOptions extends SerializeOptions {
 	space?: number;
 }
+
 export function stringifySync(value: unknown, options: StringifyOptions = {}) {
-	const result = serializeSync(value, options);
+	const result = stringifySyncInternal(
+		value,
+		serializeSyncInternalOptions(options),
+	);
+	return result.text;
+}
 
-	const str: string[] = [JSON.stringify(result.head, null, options.space)];
-
-	for (const [refId, tailValue] of Object.entries(result.tail)) {
-		const title =
-			tailValue.type === "reducer"
-				? `${refId}:${tailValue.reducerName}`
-				: refId;
-		str.push(`/* $${title} */`);
-		str.push(JSON.stringify(tailValue.value, null, options.space));
-	}
+interface StringifySyncInternalOptions extends SerializeSyncInternalOptions {
+	space?: number;
+}
+export function stringifySyncInternal(
+	value: unknown,
+	options: StringifySyncInternalOptions,
+) {
+	const result = serializeSyncInternal(value, options);
 
 	return {
 		...result,
-		text: str.join("\n"),
+		text: JSON.stringify(
+			{
+				head: result.head,
+				tail: result.tail,
+			},
+			null,
+			options.space,
+		),
 	};
 }
 
-type ReviverRecord = Record<string, (value: unknown) => unknown>;
+export type ReviverFn = (value: unknown) => unknown;
+export type ReviverRecord = Record<string, ReviverFn>;
 export interface DeserializeOptions {
 	head: JsonValue;
 	revivers?: ReviverRecord;
@@ -272,11 +318,11 @@ export interface DeserializeOptions {
 
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
-	const refResult = new Map<RefId, unknown>();
+	const refResult = new Map<RefLikeString, unknown>();
 
 	let rootResult: unknown;
 
-	function getTailResult(refId: RefId): unknown {
+	function getTailResult(refId: RefLikeString): unknown {
 		if (refResult.has(refId)) {
 			return refResult.get(refId);
 		}
@@ -307,12 +353,10 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 	function deserializeValue(value: JsonValue, isRoot = false): unknown {
 		if (isRefLikeString(value)) {
-			const refId = Number(value.slice(1)) as RefId;
-			// Special handling for self-referencing objects at top level
-			if (refId === 0) {
+			if (value === "$0") {
 				return rootResult;
 			}
-			return getTailResult(refId);
+			return getTailResult(value);
 		}
 		if (isJsonPrimitive(value)) {
 			return value;
@@ -350,69 +394,10 @@ export interface ParseSyncOptions {
 	revivers?: ReviverRecord;
 }
 export function parseSync<T>(value: string, options?: ParseSyncOptions) {
-	const lines = value.split("\n");
-
-	const headLines: string[] = [];
-	// get head
-	let line;
-	while ((line = lines.shift())) {
-		if (line.startsWith("/*")) {
-			lines.unshift(line);
-			break;
-		}
-		headLines.push(line);
-	}
-	const head = JSON.parse(headLines.join("\n")) as JsonValue;
-
-	const tail: TailRecord = {};
-
-	const buffer: string[] = [];
-
-	function flushBuffer() {
-		if (!buffer.length) {
-			return;
-		}
-		// first line of the buffer is the title
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const rawTitle = buffer.shift()!;
-		const rawValue = buffer.join("\n");
-
-		const value = JSON.parse(rawValue) as JsonValue;
-
-		// remove the "/* $" and " */"
-		const title = rawTitle.slice(4, -3);
-
-		const [refId, reducerName] = title.split(":");
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const refIdNumber = Number(refId!) as RefId;
-
-		if (reducerName) {
-			tail[refIdNumber] = {
-				reducerName: reducerName as ReducerName,
-				type: "reducer",
-				value,
-			};
-		} else {
-			tail[refIdNumber] = {
-				type: "ref",
-				value,
-			};
-		}
-	}
-
-	while ((line = lines.shift())) {
-		if (line.startsWith("/*")) {
-			flushBuffer();
-			buffer.push(line);
-			continue;
-		}
-		buffer.push(line);
-	}
-	flushBuffer();
+	const json = JSON.parse(value) as { head: JsonValue; tail: TailRecord };
 	return deserializeSync<T>({
 		...options,
-		head,
-		tail,
+		...json,
 	});
 }
 

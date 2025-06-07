@@ -1,6 +1,6 @@
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
 
-export type CounterFn<T extends string> = () => Branded<number, T>;
+export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
 export type JsonArray = JsonValue[] | readonly JsonValue[];
 export interface JsonObject {
@@ -13,7 +13,7 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 export function counter<T extends string>(): CounterFn<T> {
 	let i = 0;
 	return () => {
-		return ++i as number & { _brand: T };
+		return ++i as Branded<number, `counter-${T}`>;
 	};
 }
 export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {

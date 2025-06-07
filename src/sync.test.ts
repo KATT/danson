@@ -66,13 +66,13 @@ test("duplicate values", () => {
 
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": {
+		  "$1": {
 		    "type": "ref",
 		    "value": {
 		      "a": 1,
 		    },
 		  },
-		  "2": {
+		  "$2": {
 		    "type": "ref",
 		    "value": {
 		      "b": 2,
@@ -120,25 +120,6 @@ test("custom simple type", () => {
 		},
 	});
 
-	expect(meta.ast).toMatchInlineSnapshot(`
-		{
-		  "index": 1,
-		  "type": "object",
-		  "value": {
-		    "bigint": {
-		      "index": 2,
-		      "name": "BigInt",
-		      "type": "custom",
-		      "value": {
-		        "index": 3,
-		        "type": "primitive",
-		        "value": "1",
-		      },
-		    },
-		  },
-		}
-	`);
-
 	expect(meta.head).toEqual({
 		bigint: "$1",
 	});
@@ -146,7 +127,7 @@ test("custom simple type", () => {
 	expect(meta.tail).not.toEqual({});
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": {
+		  "$1": {
 		    "reducerName": "BigInt",
 		    "type": "reducer",
 		    "value": "1",
@@ -184,58 +165,6 @@ test("custom complex type", () => {
 		},
 	});
 
-	expect(meta.ast).toMatchInlineSnapshot(`
-		{
-		  "index": 1,
-		  "type": "object",
-		  "value": {
-		    "map": {
-		      "index": 2,
-		      "name": "Map",
-		      "type": "custom",
-		      "value": {
-		        "index": 3,
-		        "type": "array",
-		        "value": [
-		          {
-		            "index": 4,
-		            "type": "array",
-		            "value": [
-		              {
-		                "index": 5,
-		                "type": "primitive",
-		                "value": "a",
-		              },
-		              {
-		                "index": 6,
-		                "type": "primitive",
-		                "value": 1,
-		              },
-		            ],
-		          },
-		          {
-		            "index": 7,
-		            "type": "array",
-		            "value": [
-		              {
-		                "index": 8,
-		                "type": "primitive",
-		                "value": "b",
-		              },
-		              {
-		                "index": 9,
-		                "type": "primitive",
-		                "value": 2,
-		              },
-		            ],
-		          },
-		        ],
-		      },
-		    },
-		  },
-		}
-	`);
-
 	expect(meta.head).toMatchInlineSnapshot(`
 		{
 		  "map": "$1",
@@ -244,7 +173,7 @@ test("custom complex type", () => {
 
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": {
+		  "$1": {
 		    "reducerName": "Map",
 		    "type": "reducer",
 		    "value": [
@@ -287,7 +216,7 @@ test("special handling - strings with $", () => {
 	expect(meta.tail).not.toEqual({});
 	expect(meta.tail).toMatchInlineSnapshot(`
 		{
-		  "1": {
+		  "$1": {
 		    "reducerName": "_$",
 		    "type": "reducer",
 		    "value": "$1",
@@ -307,21 +236,27 @@ test("stringify object", () => {
 		objAgain: obj,
 	};
 
-	const meta = stringifySync(source, { space: 2 });
-	expect(meta.text).toMatchInlineSnapshot(`
+	const str = stringifySync(source, { space: 2 });
+	expect(str).toMatchInlineSnapshot(`
 		"{
-		  "obj": "$1",
-		  "objAgain": "$1"
-		}
-		/* $1 */
-		{
-		  "a": 1,
-		  "b": 2,
-		  "c": 3
+		  "head": {
+		    "obj": "$1",
+		    "objAgain": "$1"
+		  },
+		  "tail": {
+		    "$1": {
+		      "type": "ref",
+		      "value": {
+		        "a": 1,
+		        "b": 2,
+		        "c": 3
+		      }
+		    }
+		  }
 		}"
 	`);
 
-	const result = parseSync(meta.text);
+	const result = parseSync(str);
 	expect(result).toEqual(source);
 });
 
@@ -330,7 +265,7 @@ test("stringify custom type", () => {
 		bigint: 1n,
 	};
 
-	const meta = stringifySync(source, {
+	const str = stringifySync(source, {
 		reducers: {
 			BigInt: (value) => {
 				if (typeof value !== "bigint") {
@@ -341,15 +276,22 @@ test("stringify custom type", () => {
 		},
 		space: 2,
 	});
-	expect(meta.text).toMatchInlineSnapshot(`
+	expect(str).toMatchInlineSnapshot(`
 		"{
-		  "bigint": "$1"
-		}
-		/* $1:BigInt */
-		"1""
+		  "head": {
+		    "bigint": "$1"
+		  },
+		  "tail": {
+		    "$1": {
+		      "reducerName": "BigInt",
+		      "type": "reducer",
+		      "value": "1"
+		    }
+		  }
+		}"
 	`);
 
-	const result = parseSync(meta.text, {
+	const result = parseSync(str, {
 		revivers: {
 			BigInt: (value) => BigInt(value as string),
 		},

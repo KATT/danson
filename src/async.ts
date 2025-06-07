@@ -1,8 +1,12 @@
-import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
-import { ParseOptions, SerializeOptions } from "./utils.js";
-
-type Branded<T, Brand> = T & { __brand: Brand };
+import {
+	ReducerRecord,
+	RefIndex,
+	serializeSyncInternalOptions,
+	StringifyOptions,
+	stringifySyncInternal,
+} from "./sync.js";
+import { Branded, counter, CounterFn } from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
 	return value as Branded<T, "chunkStatus">;
@@ -30,90 +34,139 @@ const ASYNC_ITERABLE_STATUS_YIELD = chunkStatus(0);
 const ASYNC_ITERABLE_STATUS_ERROR = chunkStatus(1);
 const ASYNC_ITERABLE_STATUS_RETURN = chunkStatus(2);
 
-type ChunkIndex = Branded<number, "chunkIndex">;
+type ChunkIndex = ReturnType<CounterFn<"chunkIndex">>;
 type ChunkStatus = Branded<number, "chunkStatus">;
 
-export async function parseAsync<T>(
-	value: AsyncIterable<string>,
-	opts: ParseOptions = {},
-): Promise<T> {
-	const iterator = lineAggregator(value)[Symbol.asyncIterator]();
-	const controllerMap = new Map<
-		ChunkIndex,
-		ReturnType<typeof createController>
-	>();
+export interface ParseAsyncOptions {
+	reducers?: ReducerRecord;
+}
 
-	function createController(id: ChunkIndex) {
-		let deferred = createDeferred();
-		type Chunk = [ChunkStatus, unknown] | Error;
-		const buffer: Chunk[] = [];
-
-		async function* generator() {
-			try {
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-				while (true) {
-					await deferred.promise;
-					deferred = createDeferred();
-
-					while (buffer.length) {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						const value = buffer.shift()!;
-						if (value instanceof Error) {
-							throw value;
-						}
-						yield value;
-					}
-				}
-			} finally {
-				controllerMap.delete(id);
-			}
-		}
-
-		return {
-			generator,
-			push: (v: Chunk) => {
-				buffer.push(v);
-				deferred.resolve();
-			},
-		};
-	}
-
-	function getController(id: ChunkIndex) {
-		const c = controllerMap.get(id);
-		if (!c) {
-			const queue = createController(id);
-			controllerMap.set(id, queue);
-			return queue;
-		}
-		return c;
-	}
-
-	throw new Error("Not implemented");
+export interface StringifyAsyncOptions extends StringifyOptions {
+	coerceError?: (cause: unknown) => unknown;
 }
 
 export async function* stringifyAsync(
 	value: unknown,
-	options: SerializeOptions = {},
+	options: StringifyAsyncOptions = {},
 ) {
-	const chunkIndex = 0 as ChunkIndex;
+	const chunkIndexCounter = counter<"chunkIndex">();
+	/* eslint-disable perfectionist/sort-objects */
+	const reducers: ReducerRecord = {
+		...options.reducers,
+		ReadableStream(v) {
+			if (!(v instanceof ReadableStream)) {
+				return false;
+			}
+			return registerAsync(async function* () {
+				const reader = v.getReader();
+				try {
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+					while (true) {
+						const next = await reader.read();
+
+						if (next.done) {
+							yield [ASYNC_ITERABLE_STATUS_RETURN, stringify(next.value)];
+							break;
+						}
+						yield [ASYNC_ITERABLE_STATUS_YIELD, stringify(next.value)];
+					}
+				} catch (cause) {
+					yield [ASYNC_ITERABLE_STATUS_ERROR, safeCause(cause)];
+				} finally {
+					reader.releaseLock();
+					await reader.cancel();
+				}
+			});
+		},
+		AsyncIterable(v) {
+			if (!isAsyncIterable(v)) {
+				return false;
+			}
+			return registerAsync(async function* () {
+				const iterator = v[Symbol.asyncIterator]();
+				try {
+					// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+					while (true) {
+						const next = await iterator.next();
+						if (next.done) {
+							yield [ASYNC_ITERABLE_STATUS_RETURN, stringify(next.value)];
+							break;
+						}
+						yield [ASYNC_ITERABLE_STATUS_YIELD, stringify(next.value)];
+					}
+				} catch (cause) {
+					yield [ASYNC_ITERABLE_STATUS_ERROR, safeCause(cause)];
+				} finally {
+					await iterator.return?.();
+				}
+			});
+		},
+		Promise(v) {
+			if (!isPromise(v)) {
+				return false;
+			}
+			v.catch(() => {
+				// prevent unhandled promise rejection
+			});
+			return registerAsync(async function* () {
+				try {
+					const next = await v;
+					yield [PROMISE_STATUS_FULFILLED, stringify(next)];
+				} catch (cause) {
+					yield [PROMISE_STATUS_REJECTED, safeCause(cause)];
+				}
+			});
+		},
+	};
+	const opts = serializeSyncInternalOptions({
+		...options,
+		reducers,
+	});
 
 	const mergedIterables =
 		mergeAsyncIterables<[ChunkIndex, ChunkStatus, string]>();
 
-	throw new Error("Not implemented");
-}
+	function registerAsync(callback: () => AsyncIterable<[ChunkStatus, string]>) {
+		const idx = chunkIndexCounter();
 
-async function* lineAggregator(iterable: AsyncIterable<string>) {
-	let buffer = "";
+		const iterable = callback();
 
-	for await (const chunk of iterable) {
-		buffer += chunk;
+		mergedIterables.add(
+			(async function* () {
+				for await (const item of iterable) {
+					yield [idx, ...item];
+				}
+			})(),
+		);
 
-		let index: number;
-		while ((index = buffer.indexOf("\n")) !== -1) {
-			const line = buffer.slice(0, index);
-			buffer = buffer.slice(index + 1);
-			yield line;
+		return idx;
+	}
+	function stringify(value: unknown) {
+		return stringifySyncInternal(value, opts).text;
+	}
+
+	/* eslint-enable perfectionist/sort-objects */
+
+	/**
+	 * The error cause to safely stringify - prevents interrupting full stream when error is unregistered
+	 */
+	function safeCause(cause: unknown) {
+		try {
+			return stringify(cause);
+		} catch (err) {
+			if (!options.coerceError) {
+				throw err;
+			}
+			return stringify(options.coerceError(cause));
 		}
+	}
+
+	yield stringify(value) + "\n\n";
+
+	for await (const item of mergedIterables) {
+		const [index, status, text] = item;
+		yield `/* yield $${String(index)} */`;
+		yield status;
+		yield text;
 	}
 }
