@@ -181,9 +181,9 @@ export function serializeSyncInternal(
 		}
 		if (knownDuplicates.has(chunk.index) && !force) {
 			const refId = getRefIdForIndex(chunk.index);
-			const head = toJson(chunk, true);
+			const json = toJson(chunk, true);
 
-			refs[refId] = head;
+			refs[refId] = json;
 			return refId;
 		}
 
@@ -201,21 +201,20 @@ export function serializeSyncInternal(
 				return customValue;
 			}
 			case "object": {
-				const head: JsonObject = {};
+				const json: JsonObject = {};
 				for (const [key, value] of Object.entries(chunk.value)) {
-					head[key] = toJson(value, false);
+					json[key] = toJson(value, false);
 				}
-				return head;
+				return json;
 			}
 			case "primitive": {
 				return chunk.value;
 			}
 			case "ref-like-string": {
-				const head = chunk.value;
 				const customValue: CustomValue = {
 					_: "$",
 					type: "string" as ReducerName,
-					value: head,
+					value: chunk.value,
 				};
 
 				return customValue;
@@ -225,16 +224,21 @@ export function serializeSyncInternal(
 
 	const ast = introspect(value);
 
-	const head = toJson(ast, true);
+	const json = toJson(ast, true);
 
 	return {
 		ast,
-		head,
 		indexToRefRecord,
+		json,
 		knownDuplicates,
 		refCounter: options.refCounter,
 		refs,
 	};
+}
+
+export interface SerializeReturn {
+	json: JsonValue;
+	refs?: RefRecord;
 }
 
 export interface SerializeOptions {
@@ -255,15 +259,21 @@ export function serializeSyncInternalOptions<T extends SerializeOptions>(
 	};
 }
 
-export function serializeSync(value: unknown, options: SerializeOptions = {}) {
+export function serializeSync(
+	value: unknown,
+	options: SerializeOptions = {},
+): SerializeReturn {
 	const result = serializeSyncInternal(
 		value,
 		serializeSyncInternalOptions(options),
 	);
-	return {
-		head: result.head,
-		tail: result.refs,
+	const ret: SerializeReturn = {
+		json: result.json,
 	};
+	if (Object.keys(result.refs).length > 0) {
+		ret.refs = result.refs;
+	}
+	return ret;
 }
 
 export interface StringifyOptions extends SerializeOptions {
@@ -291,8 +301,8 @@ export function stringifySyncInternal(
 		...result,
 		text: JSON.stringify(
 			{
-				head: result.head,
-				tail: result.refs,
+				json: result.json,
+				refs: result.refs,
 			},
 			null,
 			options.space,
@@ -302,10 +312,8 @@ export function stringifySyncInternal(
 
 export type ReviverFn = (value: unknown) => unknown;
 export type ReviverRecord = Record<string, ReviverFn>;
-export interface DeserializeOptions {
-	head: JsonValue;
+export interface DeserializeOptions extends SerializeReturn {
 	revivers?: ReviverRecord;
-	tail: RefRecord;
 }
 
 export function deserializeSync<T>(options: DeserializeOptions): T {
@@ -314,15 +322,15 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 	let rootResult: unknown;
 
-	function getTailResult(refId: RefLikeString): unknown {
+	function getRefResult(refId: RefLikeString): unknown {
 		if (refResult.has(refId)) {
 			return refResult.get(refId);
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const tailValue = options.tail[refId]!;
+		const refValue = options.refs![refId]!;
 
-		const result = deserializeValue(tailValue);
+		const result = deserializeValue(refValue);
 		refResult.set(refId, result);
 		return result;
 	}
@@ -332,7 +340,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 			if (value === "$0") {
 				return rootResult;
 			}
-			return getTailResult(value);
+			return getRefResult(value);
 		}
 		if (isJsonPrimitive(value)) {
 			return value;
@@ -353,15 +361,15 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 			const result: Record<string, unknown> = {};
 
 			if (value._ === "$") {
-				const tailValue = value as CustomValue;
-				if (tailValue.type === "string") {
-					return tailValue.value;
+				const refValue = value as CustomValue;
+				if (refValue.type === "string") {
+					return refValue.value;
 				}
-				const reviver = revivers[tailValue.type];
+				const reviver = revivers[refValue.type];
 				if (!reviver) {
-					throw new Error(`No reviver found for reducer: ${tailValue.type}`);
+					throw new Error(`No reviver found for reducer: ${refValue.type}`);
 				}
-				return reviver(tailValue.value);
+				return reviver(refValue.value);
 			}
 			if (isRoot) {
 				rootResult = result;
@@ -375,14 +383,14 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		throw new Error("Deserializing unknown value");
 	}
 
-	return deserializeValue(options.head, true) as T;
+	return deserializeValue(options.json, true) as T;
 }
 
 export interface ParseSyncOptions {
 	revivers?: ReviverRecord;
 }
 export function parseSync<T>(value: string, options?: ParseSyncOptions) {
-	const json = JSON.parse(value) as { head: JsonValue; tail: RefRecord };
+	const json = JSON.parse(value) as SerializeReturn;
 	return deserializeSync<T>({
 		...options,
 		...json,

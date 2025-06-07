@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 
 import { parseAsync, stringifyAsync } from "./async.js";
+import { reducers } from "./test.helpers.js";
 import { aggregateAsyncIterable, sleep, waitError } from "./test.utils.js";
 
 test("stringify promise", async () => {
@@ -50,17 +51,27 @@ test.only("stringify promise returning Date", async () => {
 	expect(stringifyAggregate.items).toMatchInlineSnapshot(`
 		[
 		  "{
-		  "promise": "$1"
+		  "head": {
+		    "promise": {
+		      "_": "$",
+		      "type": "Promise",
+		      "value": 1
+		    }
+		  },
+		  "tail": {}
 		}
-		/* $1:Promise */
-		1
 
 		",
 		  "/* yield $1 */",
 		  0,
-		  ""$2"
-		/* $2:Date */
-		"1970-01-01T00:00:00.000Z"",
+		  "{
+		  "head": {
+		    "_": "$",
+		    "type": "Date",
+		    "value": "1970-01-01T00:00:00.000Z"
+		  },
+		  "tail": {}
+		}",
 		]
 	`);
 	expect(stringifyAggregate.ok).toBe(true);

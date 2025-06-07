@@ -1,7 +1,6 @@
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
 	ReducerRecord,
-	RefIndex,
 	serializeSyncInternalOptions,
 	StringifyOptions,
 	stringifySyncInternal,
@@ -147,9 +146,6 @@ export async function* stringifyAsync(
 
 	/* eslint-enable perfectionist/sort-objects */
 
-	/**
-	 * The error cause to safely stringify - prevents interrupting full stream when error is unregistered
-	 */
 	function safeCause(cause: unknown) {
 		try {
 			return stringify(cause);
@@ -161,7 +157,7 @@ export async function* stringifyAsync(
 		}
 	}
 
-	yield stringify(value) + "\n\n";
+	yield stringify(value) + "\n";
 
 	for await (const item of mergedIterables) {
 		const [index, status, text] = item;

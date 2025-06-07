@@ -12,8 +12,8 @@ test("string", () => {
 	const source = "hello";
 	const meta = serializeSync(source);
 
-	expect(meta.head).toBe(source);
-	expect(meta.tail).toEqual({});
+	expect(meta.json).toBe(source);
+	expect(meta.refs).toBeUndefined();
 	expect(deserializeSync(meta)).toEqual(source);
 });
 
@@ -21,8 +21,8 @@ test("number", () => {
 	const source = 1;
 	const meta = serializeSync(source);
 
-	expect(meta.head).toBe(1);
-	expect(meta.tail).toEqual({});
+	expect(meta.json).toBe(1);
+	expect(meta.refs).toBeUndefined();
 
 	expect(deserializeSync(meta)).toEqual(source);
 });
@@ -35,8 +35,8 @@ test("object", () => {
 	};
 	const meta = serializeSync(source);
 
-	expect(meta.head).toEqual(source);
-	expect(meta.tail).toEqual({});
+	expect(meta.json).toEqual(source);
+	expect(meta.refs).toBeUndefined();
 
 	expect(deserializeSync(meta)).toEqual(source);
 });
@@ -58,14 +58,14 @@ test("duplicate values", () => {
 
 	const meta = serializeSync(source);
 
-	expect(meta.head).toEqual({
+	expect(meta.json).toEqual({
 		1: "$1",
 		2: "$1",
 		3: "$2",
 		4: "$2",
 	});
 
-	expect(meta.tail).toMatchInlineSnapshot(`
+	expect(meta.refs).toMatchInlineSnapshot(`
 		{
 		  "$1": {
 		    "a": 1,
@@ -87,11 +87,11 @@ test("self-referencing object", () => {
 	source.self = source;
 	const meta = serializeSync(source);
 
-	expect(meta.head).toEqual({
+	expect(meta.json).toEqual({
 		foo: "bar",
 		self: "$0",
 	});
-	expect(meta.tail).toEqual({});
+	expect(meta.refs).toBeUndefined();
 
 	const result = deserializeSync<typeof source>(meta);
 
@@ -108,7 +108,7 @@ test("custom simple type", () => {
 		reducers,
 	});
 
-	expect(meta.head).toMatchInlineSnapshot(`
+	expect(meta.json).toMatchInlineSnapshot(`
 		{
 		  "bigint": {
 		    "_": "$",
@@ -118,7 +118,7 @@ test("custom simple type", () => {
 		}
 	`);
 
-	expect(meta.tail).toEqual({});
+	expect(meta.refs).toBeUndefined();
 
 	const result = deserializeSync<typeof source>({
 		...meta,
@@ -148,26 +148,26 @@ test("custom complex type", () => {
 		},
 	});
 
-	expect(meta.head).toMatchInlineSnapshot(`
+	expect(meta).toMatchInlineSnapshot(`
 		{
-		  "map": {
-		    "_": "$",
-		    "type": "Map",
-		    "value": [
-		      [
-		        "a",
-		        1,
+		  "json": {
+		    "map": {
+		      "_": "$",
+		      "type": "Map",
+		      "value": [
+		        [
+		          "a",
+		          1,
+		        ],
+		        [
+		          "b",
+		          2,
+		        ],
 		      ],
-		      [
-		        "b",
-		        2,
-		      ],
-		    ],
+		    },
 		  },
 		}
 	`);
-
-	expect(meta.tail).toMatchInlineSnapshot(`{}`);
 
 	const result = deserializeSync<typeof source>({
 		...meta,
@@ -188,12 +188,14 @@ test("special handling - ref-like strings", () => {
 
 	const meta = serializeSync(source);
 
-	expect(meta.head).toMatchInlineSnapshot(`
+	expect(meta).toMatchInlineSnapshot(`
 		{
-		  "foo": {
-		    "_": "$",
-		    "type": "string",
-		    "value": "$1",
+		  "json": {
+		    "foo": {
+		      "_": "$",
+		      "type": "string",
+		      "value": "$1",
+		    },
 		  },
 		}
 	`);
@@ -220,11 +222,11 @@ test("stringify object", () => {
 	const str = stringifySync(source, { space: 2 });
 	expect(str).toMatchInlineSnapshot(`
 		"{
-		  "head": {
+		  "json": {
 		    "obj": "$1",
 		    "objAgain": "$1"
 		  },
-		  "tail": {
+		  "refs": {
 		    "$1": {
 		      "a": 1,
 		      "b": 2,
@@ -256,14 +258,14 @@ test("stringify custom type", () => {
 	});
 	expect(str).toMatchInlineSnapshot(`
 		"{
-		  "head": {
+		  "json": {
 		    "bigint": {
 		      "_": "$",
 		      "type": "BigInt",
 		      "value": "1"
 		    }
 		  },
-		  "tail": {}
+		  "refs": {}
 		}"
 	`);
 
