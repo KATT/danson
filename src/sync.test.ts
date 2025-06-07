@@ -79,7 +79,7 @@ test("duplicate values", () => {
 	expect(deserializeSync(meta)).toEqual(source);
 });
 
-test("self-referencing object", () => {
+test("self-referencing object at top", () => {
 	const source: Record<string, unknown> = {
 		foo: "bar",
 		self: null,
@@ -97,6 +97,41 @@ test("self-referencing object", () => {
 
 	expect(result).toEqual(source);
 	expect(result.self).toBe(result);
+});
+
+test("self-referencing object in object", () => {
+	const child: any = {
+		foo: "bar",
+		self: null,
+	};
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+	child.self = child;
+
+	const source: any = {
+		child,
+	};
+
+	const meta = serializeSync(source);
+
+	expect(meta).toMatchInlineSnapshot(`
+		{
+		  "json": {
+		    "child": "$1",
+		  },
+		  "refs": {
+		    "$1": {
+		      "foo": "bar",
+		      "self": "$1",
+		    },
+		  },
+		}
+	`);
+
+	const result = deserializeSync<typeof source>(meta);
+
+	expect(result).toEqual(source);
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+	expect(result.child.self).toBe(result.child);
 });
 
 test("custom simple type", () => {
@@ -128,8 +163,8 @@ test("custom simple type", () => {
 	expect(result).toEqual(source);
 });
 
-test("custom complex type", () => {
-	const map = new Map<string, number>();
+test("custom complex type with self reference", () => {
+	const map = new Map<string, unknown>();
 	map.set("a", 1);
 	map.set("b", 2);
 
@@ -137,21 +172,19 @@ test("custom complex type", () => {
 		map,
 	};
 
+	map.set("self", map);
+
 	const meta = serializeSync(source, {
-		reducers: {
-			Map: (value) => {
-				if (value instanceof Map) {
-					return Array.from(value.entries());
-				}
-				return false;
-			},
-		},
+		reducers,
 	});
 
 	expect(meta).toMatchInlineSnapshot(`
 		{
 		  "json": {
-		    "map": {
+		    "map": "$1",
+		  },
+		  "refs": {
+		    "$1": {
 		      "_": "$",
 		      "type": "Map",
 		      "value": [
@@ -163,6 +196,10 @@ test("custom complex type", () => {
 		          "b",
 		          2,
 		        ],
+		        [
+		          "self",
+		          "$1",
+		        ],
 		      ],
 		    },
 		  },
@@ -171,11 +208,7 @@ test("custom complex type", () => {
 
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers: {
-			Map: (value) => {
-				return new Map(value as [unknown, unknown][]);
-			},
-		},
+		revivers,
 	});
 
 	expect(result).toEqual(source);
@@ -197,6 +230,7 @@ test("special handling - ref-like strings", () => {
 		      "value": "$1",
 		    },
 		  },
+		  "refs": undefined,
 		}
 	`);
 
@@ -254,18 +288,17 @@ test("stringify custom type", () => {
 				return value.toString();
 			},
 		},
-		space: 2,
+		space: "\t",
 	});
 	expect(str).toMatchInlineSnapshot(`
 		"{
-		  "json": {
-		    "bigint": {
-		      "_": "$",
-		      "type": "BigInt",
-		      "value": "1"
-		    }
-		  },
-		  "refs": {}
+			"json": {
+				"bigint": {
+					"_": "$",
+					"type": "BigInt",
+					"value": "1"
+				}
+			}
 		}"
 	`);
 

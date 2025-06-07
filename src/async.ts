@@ -1,6 +1,10 @@
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
 	ReducerRecord,
+	SerializeOptions,
+	SerializeReturn,
+	serializeSyncInternal,
+	SerializeSyncInternalOptions,
 	serializeSyncInternalOptions,
 	StringifyOptions,
 	stringifySyncInternal,
@@ -48,6 +52,27 @@ export async function* stringifyAsync(
 	value: unknown,
 	options: StringifyAsyncOptions = {},
 ) {
+	const opts = serializeSyncInternalOptions(options);
+	const iterator = serializeAsyncInternal(value, {
+		...opts,
+		chunkIndexCounter: counter(),
+	});
+
+	for await (const item of iterator) {
+		yield JSON.stringify(item, null, options.space) + "\n";
+	}
+}
+
+export interface SerializeAsyncInternalOptions
+	extends SerializeSyncInternalOptions {
+	chunkIndexCounter: CounterFn<"chunkIndex">;
+	coerceError?: (cause: unknown) => unknown;
+}
+
+export async function* serializeAsyncInternal(
+	value: unknown,
+	options: SerializeAsyncInternalOptions,
+) {
 	const chunkIndexCounter = counter<"chunkIndex">();
 	/* eslint-disable perfectionist/sort-objects */
 	const reducers: ReducerRecord = {
@@ -64,13 +89,13 @@ export async function* stringifyAsync(
 						const next = await reader.read();
 
 						if (next.done) {
-							yield [ASYNC_ITERABLE_STATUS_RETURN, stringify(next.value)];
+							yield [ASYNC_ITERABLE_STATUS_RETURN, serialize(next.value)];
 							break;
 						}
-						yield [ASYNC_ITERABLE_STATUS_YIELD, stringify(next.value)];
+						yield [ASYNC_ITERABLE_STATUS_YIELD, serialize(next.value)];
 					}
 				} catch (cause) {
-					yield [ASYNC_ITERABLE_STATUS_ERROR, safeCause(cause)];
+					yield [ASYNC_ITERABLE_STATUS_ERROR, serialize(cause)];
 				} finally {
 					reader.releaseLock();
 					await reader.cancel();
@@ -88,10 +113,10 @@ export async function* stringifyAsync(
 					while (true) {
 						const next = await iterator.next();
 						if (next.done) {
-							yield [ASYNC_ITERABLE_STATUS_RETURN, stringify(next.value)];
+							yield [ASYNC_ITERABLE_STATUS_RETURN, serialize(next.value)];
 							break;
 						}
-						yield [ASYNC_ITERABLE_STATUS_YIELD, stringify(next.value)];
+						yield [ASYNC_ITERABLE_STATUS_YIELD, serialize(next.value)];
 					}
 				} catch (cause) {
 					yield [ASYNC_ITERABLE_STATUS_ERROR, safeCause(cause)];
@@ -110,7 +135,7 @@ export async function* stringifyAsync(
 			return registerAsync(async function* () {
 				try {
 					const next = await v;
-					yield [PROMISE_STATUS_FULFILLED, stringify(next)];
+					yield [PROMISE_STATUS_FULFILLED, serialize(next)];
 				} catch (cause) {
 					yield [PROMISE_STATUS_REJECTED, safeCause(cause)];
 				}
@@ -122,10 +147,20 @@ export async function* stringifyAsync(
 		reducers,
 	});
 
-	const mergedIterables =
-		mergeAsyncIterables<[ChunkIndex, ChunkStatus, string]>();
+	function serialize(value: unknown): SerializeReturn {
+		const result = serializeSyncInternal(value, opts);
+		return {
+			json: result.json,
+			refs: result.refs,
+		};
+	}
 
-	function registerAsync(callback: () => AsyncIterable<[ChunkStatus, string]>) {
+	const mergedIterables =
+		mergeAsyncIterables<[ChunkIndex, ChunkStatus, SerializeReturn]>();
+
+	function registerAsync(
+		callback: () => AsyncIterable<[ChunkStatus, SerializeReturn]>,
+	) {
 		const idx = chunkIndexCounter();
 
 		const iterable = callback();
@@ -140,29 +175,22 @@ export async function* stringifyAsync(
 
 		return idx;
 	}
-	function stringify(value: unknown) {
-		return stringifySyncInternal(value, opts).text;
-	}
-
 	/* eslint-enable perfectionist/sort-objects */
 
 	function safeCause(cause: unknown) {
 		try {
-			return stringify(cause);
+			return serialize(cause);
 		} catch (err) {
 			if (!options.coerceError) {
 				throw err;
 			}
-			return stringify(options.coerceError(cause));
+			return serialize(options.coerceError(cause));
 		}
 	}
 
-	yield stringify(value) + "\n";
+	yield serialize(value);
 
 	for await (const item of mergedIterables) {
-		const [index, status, text] = item;
-		yield `/* yield $${String(index)} */`;
-		yield status;
-		yield text;
+		yield item;
 	}
 }

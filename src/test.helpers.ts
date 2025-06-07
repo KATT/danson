@@ -19,6 +19,24 @@ export const transformers = {
 		},
 		reviver: (value) => new Date(value as string),
 	},
+	Map: {
+		reducer: (value) => {
+			if (!(value instanceof Map)) {
+				return false;
+			}
+			return Array.from(value.entries());
+		},
+		reviver: (value) => new Map(value as [unknown, unknown][]),
+	},
+	undef: {
+		reducer: (value) => {
+			if (value === undefined) {
+				return undefined;
+			}
+			return false;
+		},
+		reviver: () => undefined,
+	},
 } satisfies Record<
 	string,
 	{

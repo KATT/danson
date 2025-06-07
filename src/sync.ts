@@ -232,7 +232,7 @@ export function serializeSyncInternal(
 		json,
 		knownDuplicates,
 		refCounter: options.refCounter,
-		refs,
+		refs: Object.keys(refs).length > 0 ? refs : undefined,
 	};
 }
 
@@ -267,17 +267,14 @@ export function serializeSync(
 		value,
 		serializeSyncInternalOptions(options),
 	);
-	const ret: SerializeReturn = {
+	return {
 		json: result.json,
+		refs: result.refs,
 	};
-	if (Object.keys(result.refs).length > 0) {
-		ret.refs = result.refs;
-	}
-	return ret;
 }
 
 export interface StringifyOptions extends SerializeOptions {
-	space?: number;
+	space?: number | string;
 }
 
 export function stringifySync(value: unknown, options: StringifyOptions = {}) {
@@ -289,7 +286,7 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 }
 
 interface StringifySyncInternalOptions extends SerializeSyncInternalOptions {
-	space?: number;
+	space?: number | string;
 }
 export function stringifySyncInternal(
 	value: unknown,
@@ -320,8 +317,6 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
 	const refResult = new Map<RefLikeString, unknown>();
 
-	let rootResult: unknown;
-
 	function getRefResult(refId: RefLikeString): unknown {
 		if (refResult.has(refId)) {
 			return refResult.get(refId);
@@ -330,16 +325,13 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const refValue = options.refs![refId]!;
 
-		const result = deserializeValue(refValue);
+		const result = deserializeValue(refValue, refId);
 		refResult.set(refId, result);
 		return result;
 	}
 
-	function deserializeValue(value: JsonValue, isRoot = false): unknown {
+	function deserializeValue(value: JsonValue, refId?: RefLikeString): unknown {
 		if (isRefLikeString(value)) {
-			if (value === "$0") {
-				return rootResult;
-			}
 			return getRefResult(value);
 		}
 		if (isJsonPrimitive(value)) {
@@ -348,17 +340,20 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 		if (Array.isArray(value)) {
 			const result: unknown[] = [];
-			if (isRoot) {
-				rootResult = result;
+			if (refId) {
+				refResult.set(refId, result);
 			}
 			for (const it of value) {
-				result.push(deserializeValue(it, isRoot));
+				result.push(deserializeValue(it));
 			}
-			return rootResult;
+			return result;
 		}
 
 		if (isPlainObject(value)) {
 			const result: Record<string, unknown> = {};
+			if (refId) {
+				refResult.set(refId, result);
+			}
 
 			if (value._ === "$") {
 				const refValue = value as CustomValue;
@@ -371,11 +366,8 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 				}
 				return reviver(refValue.value);
 			}
-			if (isRoot) {
-				rootResult = result;
-			}
 			for (const [key, val] of Object.entries(value)) {
-				result[key] = deserializeValue(val, isRoot);
+				result[key] = deserializeValue(val);
 			}
 			return result;
 		}
@@ -383,7 +375,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		throw new Error("Deserializing unknown value");
 	}
 
-	return deserializeValue(options.json, true) as T;
+	return deserializeValue(options.json, "$0") as T;
 }
 
 export interface ParseSyncOptions {

@@ -1,10 +1,12 @@
 import { expect, test } from "vitest";
 
-import { parseAsync, stringifyAsync } from "./async.js";
+import { parseAsync, serializeAsyncInternal, stringifyAsync } from "./async.js";
+import { serializeSyncInternalOptions } from "./sync.js";
 import { reducers } from "./test.helpers.js";
 import { aggregateAsyncIterable, sleep, waitError } from "./test.utils.js";
+import { counter } from "./utils.js";
 
-test("stringify promise", async () => {
+test("serialize promise", async () => {
 	const source = () => ({
 		promise: (async () => {
 			await new Promise((resolve) => setTimeout(resolve, 0));
@@ -12,7 +14,132 @@ test("stringify promise", async () => {
 		})(),
 	});
 
-	const iterable = stringifyAsync(source());
+	const iterable = serializeAsyncInternal(source(), {
+		...serializeSyncInternalOptions({}),
+		chunkIndexCounter: counter(),
+		reducers,
+	});
+
+	const aggregate = await aggregateAsyncIterable(iterable);
+
+	expect(aggregate.error).toBeUndefined();
+
+	expect(aggregate.items).toMatchInlineSnapshot(`
+		[
+		  {
+		    "json": {
+		      "promise": {
+		        "_": "$",
+		        "type": "Promise",
+		        "value": 1,
+		      },
+		    },
+		    "refs": undefined,
+		  },
+		  [
+		    1,
+		    0,
+		    {
+		      "json": "resolved promise",
+		      "refs": undefined,
+		    },
+		  ],
+		]
+	`);
+});
+
+test.only("serialize async iterable", async () => {
+	const source = () => ({
+		it1: (async function* () {
+			yield 1;
+		})(),
+		it2: (async function* () {
+			yield "a";
+		})(),
+	});
+
+	const iterable = serializeAsyncInternal(source(), {
+		...serializeSyncInternalOptions({}),
+		chunkIndexCounter: counter(),
+		reducers,
+	});
+
+	const aggregate = await aggregateAsyncIterable(iterable);
+
+	expect(aggregate.error).toBeUndefined();
+
+	expect(aggregate.items).toMatchInlineSnapshot(`
+		[
+		  {
+		    "json": {
+		      "it1": {
+		        "_": "$",
+		        "type": "AsyncIterable",
+		        "value": 1,
+		      },
+		      "it2": {
+		        "_": "$",
+		        "type": "AsyncIterable",
+		        "value": 2,
+		      },
+		    },
+		    "refs": undefined,
+		  },
+		  [
+		    1,
+		    0,
+		    {
+		      "json": 1,
+		      "refs": undefined,
+		    },
+		  ],
+		  [
+		    2,
+		    0,
+		    {
+		      "json": "a",
+		      "refs": undefined,
+		    },
+		  ],
+		  [
+		    1,
+		    2,
+		    {
+		      "json": {
+		        "_": "$",
+		        "type": "undef",
+		        "value": "$1",
+		      },
+		      "refs": undefined,
+		    },
+		  ],
+		  [
+		    2,
+		    2,
+		    {
+		      "json": {
+		        "_": "$",
+		        "type": "undef",
+		        "value": "$2",
+		      },
+		      "refs": undefined,
+		    },
+		  ],
+		]
+	`);
+});
+
+test.only("stringify promise", async () => {
+	const source = () => ({
+		promise: (async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			return "resolved promise";
+		})(),
+	});
+
+	const iterable = stringifyAsync(source(), {
+		space: "\t",
+	});
 
 	const stringifyAggregate = await aggregateAsyncIterable(iterable);
 
@@ -20,19 +147,30 @@ test("stringify promise", async () => {
 
 	expect(stringifyAggregate.items).toMatchInlineSnapshot(`
 		[
-		  "{"promise":"$1"}
-		/* $1:Promise */
-		1
-
+		  "{
+			"json": {
+				"promise": {
+					"_": "$",
+					"type": "Promise",
+					"value": 1
+				}
+			}
+		}
 		",
-		  "[1,0,"resolved promise"]
+		  "[
+			1,
+			0,
+			{
+				"json": "resolved promise"
+			}
+		]
 		",
 		]
 	`);
 	expect(stringifyAggregate.ok).toBe(true);
 });
 
-test.only("stringify promise returning Date", async () => {
+test("stringify promise returning Date", async () => {
 	const source = () => ({
 		promise: (async () => {
 			await new Promise((resolve) => setTimeout(resolve, 0));
@@ -41,7 +179,7 @@ test.only("stringify promise returning Date", async () => {
 	});
 	const iterable = stringifyAsync(source(), {
 		reducers,
-		space: 2,
+		space: "\t",
 	});
 
 	const stringifyAggregate = await aggregateAsyncIterable(iterable);
@@ -51,26 +189,25 @@ test.only("stringify promise returning Date", async () => {
 	expect(stringifyAggregate.items).toMatchInlineSnapshot(`
 		[
 		  "{
-		  "head": {
+		  "json": {
 		    "promise": {
 		      "_": "$",
 		      "type": "Promise",
 		      "value": 1
 		    }
 		  },
-		  "tail": {}
+		  "refs": {}
 		}
-
 		",
 		  "/* yield $1 */",
 		  0,
 		  "{
-		  "head": {
+		  "json": {
 		    "_": "$",
 		    "type": "Date",
 		    "value": "1970-01-01T00:00:00.000Z"
 		  },
-		  "tail": {}
+		  "refs": {}
 		}",
 		]
 	`);
