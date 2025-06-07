@@ -316,7 +316,7 @@ export interface DeserializeOptions extends SerializeReturn {
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
 	const refResult = new Map<RefLikeString, unknown>();
-	const inProgress = new Set<RefLikeString>();
+	const inProgress = new Set<RefLikeString>(["$0"]);
 	const circularRefs = new Map<
 		RefLikeString,
 		{ count: number; symbol: unknown }
@@ -507,6 +507,19 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 	function deserializeValue(value: JsonValue, refId?: RefLikeString): unknown {
 		if (isRefLikeString(value)) {
+			// Special handling for $0 - it refers to the root object
+			if (value === "$0" && inProgress.has("$0")) {
+				// Circular reference to root object - return a symbol
+				if (!circularRefs.has("$0")) {
+					circularRefs.set("$0", {
+						count: 0,
+						symbol: Symbol("circular-$0"),
+					});
+				}
+				const circularRef = circularRefs.get("$0")!;
+				circularRef.count++;
+				return circularRef.symbol;
+			}
 			return getRefResult(value);
 		}
 		if (isJsonPrimitive(value)) {
@@ -550,7 +563,23 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		throw new Error("Deserializing unknown value");
 	}
 
-	return deserializeValue(options.json, "$0") as T;
+	// Track that we're deserializing the root object
+	inProgress.add("$0");
+
+	const result = deserializeValue(options.json, "$0") as T;
+
+	// Fix up any circular references in the root object
+	if (circularRefs.has("$0")) {
+		const { count, symbol } = circularRefs.get("$0")!;
+		replaceSymbolWithValue(result, {
+			remainingCount: count,
+			replacement: result,
+			symbol,
+		});
+	}
+
+	inProgress.delete("$0");
+	return result;
 }
 
 export interface ParseSyncOptions {
