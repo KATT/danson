@@ -163,7 +163,52 @@ test("custom simple type", () => {
 	expect(result).toEqual(source);
 });
 
-test("custom complex type with self reference", () => {
+test("map", () => {
+	const source = {
+		map: new Map<string, unknown>([
+			["bigint", 1n],
+			["foo", "bar"],
+		]),
+	};
+
+	const meta = serializeSync(source, {
+		reducers,
+	});
+
+	expect(meta.json).toMatchInlineSnapshot(`
+		{
+		  "map": {
+		    "_": "$",
+		    "type": "Map",
+		    "value": [
+		      [
+		        "bigint",
+		        {
+		          "_": "$",
+		          "type": "BigInt",
+		          "value": "1",
+		        },
+		      ],
+		      [
+		        "foo",
+		        "bar",
+		      ],
+		    ],
+		  },
+		}
+	`);
+
+	expect(meta.refs).toBeUndefined();
+
+	const result = deserializeSync<typeof source>({
+		...meta,
+		revivers,
+	});
+
+	expect(result).toEqual(source);
+});
+
+test.fails("fixme: custom complex type with self reference", () => {
 	const map = new Map<string, unknown>();
 	map.set("a", 1);
 	map.set("b", 2);

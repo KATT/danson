@@ -350,11 +350,6 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		}
 
 		if (isPlainObject(value)) {
-			const result: Record<string, unknown> = {};
-			if (refId) {
-				refResult.set(refId, result);
-			}
-
 			if (value._ === "$") {
 				const refValue = value as CustomValue;
 				if (refValue.type === "string") {
@@ -364,7 +359,12 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 				if (!reviver) {
 					throw new Error(`No reviver found for reducer: ${refValue.type}`);
 				}
-				return reviver(refValue.value);
+				return reviver(deserializeValue(refValue.value));
+			}
+
+			const result: Record<string, unknown> = {};
+			if (refId) {
+				refResult.set(refId, result);
 			}
 			for (const [key, val] of Object.entries(value)) {
 				result[key] = deserializeValue(val);
