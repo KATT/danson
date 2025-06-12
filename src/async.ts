@@ -272,6 +272,10 @@ export async function deserializeAsync<T>(
 					: new Error("Stream interrupted", { cause }),
 			);
 		}
+		iterator.return?.().catch(() => {
+			// prevent unhandled promise rejection warnings
+			// todo: do something?
+		});
 	}
 
 	/* eslint-disable perfectionist/sort-objects */
