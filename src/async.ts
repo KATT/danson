@@ -441,8 +441,9 @@ async function* jsonAggregator(
 			(firstLine === "{" && lastLine === "}") ||
 			(firstLine === "[" && lastLine === "]")
 		) {
-			yield JSON.parse(linesBuffer.join("\n"));
+			const buf = linesBuffer.join("\n");
 			linesBuffer = [];
+			yield JSON.parse(buf);
 		}
 	}
 }
