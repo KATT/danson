@@ -1,3 +1,5 @@
+import http from "node:http";
+import { AddressInfo } from "node:net";
 import { expect } from "vitest";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,3 +52,27 @@ export async function waitError<TError extends Error = Error>(
 
 export const sleep = (ms: number) =>
 	new Promise((resolve) => setTimeout(resolve, ms));
+
+export function serverResource(
+	handler: (req: http.IncomingMessage, res: http.ServerResponse) => void,
+) {
+	const server = http.createServer(handler);
+	server.listen(0);
+	const port = (server.address() as AddressInfo).port;
+
+	const url = `http://localhost:${String(port)}`;
+
+	return {
+		[Symbol.dispose]() {
+			server.close();
+		},
+		url,
+	};
+}
+
+export async function* withDebug<T>(iterable: AsyncIterable<T>) {
+	for await (const item of iterable) {
+		console.log("item", item);
+		yield item;
+	}
+}

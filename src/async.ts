@@ -1,6 +1,11 @@
+import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
+	DeserializeOptions,
+	deserializeSync,
 	ReducerRecord,
+	RefLikeString,
+	ReviverRecord,
 	SerializeOptions,
 	SerializeReturn,
 	serializeSyncInternal,
@@ -9,7 +14,14 @@ import {
 	StringifyOptions,
 	stringifySyncInternal,
 } from "./sync.js";
-import { Branded, counter, CounterFn } from "./utils.js";
+import {
+	Branded,
+	counter,
+	CounterFn,
+	JsonArray,
+	JsonObject,
+	JsonValue,
+} from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
 	return value as Branded<T, "chunkStatus">;
@@ -40,10 +52,6 @@ const ASYNC_ITERABLE_STATUS_RETURN = chunkStatus(2);
 type ChunkIndex = ReturnType<CounterFn<"chunkIndex">>;
 type ChunkStatus = Branded<number, "chunkStatus">;
 
-export interface ParseAsyncOptions {
-	reducers?: ReducerRecord;
-}
-
 export interface StringifyAsyncOptions extends StringifyOptions {
 	coerceError?: (cause: unknown) => unknown;
 }
@@ -69,11 +77,18 @@ export interface SerializeAsyncInternalOptions
 	coerceError?: (cause: unknown) => unknown;
 }
 
+type SerializeAsyncChunk = [ChunkIndex, ChunkStatus, SerializeReturn];
+
+type SerializeAsyncYield =
+	// yielded chunks
+	| SerializeAsyncChunk
+	// First chunk
+	| SerializeReturn;
+
 export async function* serializeAsyncInternal(
 	value: unknown,
 	options: SerializeAsyncInternalOptions,
 ) {
-	const chunkIndexCounter = counter<"chunkIndex">();
 	/* eslint-disable perfectionist/sort-objects */
 	const reducers: ReducerRecord = {
 		...options.reducers,
@@ -161,7 +176,7 @@ export async function* serializeAsyncInternal(
 	function registerAsync(
 		callback: () => AsyncIterable<[ChunkStatus, SerializeReturn]>,
 	) {
-		const idx = chunkIndexCounter();
+		const idx = opts.chunkIndexCounter();
 
 		const iterable = callback();
 
@@ -192,5 +207,248 @@ export async function* serializeAsyncInternal(
 
 	for await (const item of mergedIterables) {
 		yield item;
+	}
+}
+export interface DeserializeAsyncOptions
+	extends Omit<DeserializeOptions, keyof SerializeReturn> {
+	revivers?: ReviverRecord;
+}
+
+export async function deserializeAsync<T>(
+	iterable: AsyncIterable<SerializeAsyncYield, void>,
+	options?: DeserializeAsyncOptions,
+) {
+	const iterator = iterable[Symbol.asyncIterator]();
+	const controllerMap = new Map<
+		ChunkIndex,
+		ReturnType<typeof createController>
+	>();
+	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
+
+	function createController(id: ChunkIndex) {
+		let deferred = createDeferred();
+		type Chunk = [ChunkStatus, unknown] | Error;
+		const buffer: Chunk[] = [];
+
+		async function* generator() {
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				while (true) {
+					await deferred.promise;
+					deferred = createDeferred();
+
+					while (buffer.length) {
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						const value = buffer.shift()!;
+						if (value instanceof Error) {
+							throw value;
+						}
+						yield value;
+					}
+				}
+			} finally {
+				controllerMap.delete(id);
+			}
+		}
+
+		return {
+			generator,
+			push: (v: Chunk) => {
+				buffer.push(v);
+				deferred.resolve();
+			},
+		};
+	}
+
+	function getController(id: ChunkIndex) {
+		const c = controllerMap.get(id);
+		if (!c) {
+			const queue = createController(id);
+			controllerMap.set(id, queue);
+			return queue;
+		}
+		return c;
+	}
+
+	function cleanup(cause?: unknown) {
+		for (const [, enqueue] of controllerMap) {
+			enqueue.push(
+				cause instanceof Error
+					? cause
+					: new Error("Stream interrupted", { cause }),
+			);
+		}
+	}
+
+	/* eslint-disable perfectionist/sort-objects */
+
+	const revivers: ReviverRecord = {
+		...options?.revivers,
+
+		ReadableStream(idx) {
+			const c = getController(idx as ChunkIndex);
+
+			const iterable = c.generator();
+
+			return new ReadableStream({
+				async cancel() {
+					await iterable.return();
+				},
+				async pull(controller) {
+					const result = await iterable.next();
+
+					if (result.done) {
+						controller.close();
+						return;
+					}
+					const [status, value] = result.value;
+					switch (status) {
+						case ASYNC_ITERABLE_STATUS_RETURN:
+							controller.close();
+							break;
+						case ASYNC_ITERABLE_STATUS_YIELD:
+							controller.enqueue(value);
+							break;
+						case ASYNC_ITERABLE_STATUS_ERROR:
+							throw value;
+						default:
+							// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+							throw new Error(`Unknown async iterable status: ${status}`);
+					}
+				},
+			});
+		},
+		async *AsyncIterable(idx) {
+			const c = getController(idx as ChunkIndex);
+
+			for await (const item of c.generator()) {
+				const [status, value] = item;
+				switch (status) {
+					case ASYNC_ITERABLE_STATUS_RETURN:
+						return value;
+					case ASYNC_ITERABLE_STATUS_YIELD:
+						yield value;
+						break;
+					case ASYNC_ITERABLE_STATUS_ERROR:
+						throw value;
+				}
+			}
+		},
+		Promise(idx) {
+			const c = getController(idx as ChunkIndex);
+
+			const promise = (async () => {
+				for await (const item of c.generator()) {
+					const [status, value] = item;
+					switch (status) {
+						case PROMISE_STATUS_FULFILLED:
+							return value;
+						case PROMISE_STATUS_REJECTED:
+							throw value;
+						default:
+							// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+							throw new Error(`Unknown promise status: ${status}`);
+					}
+				}
+			})();
+
+			promise.catch(() => {
+				// prevent unhandled promise rejection warnings
+			});
+
+			return promise;
+		},
+	};
+	/* eslint-enable perfectionist/sort-objects */
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+	function deserialize<TShape>(value: SerializeReturn) {
+		return deserializeSync<TShape>({
+			...options,
+			...value,
+			cache,
+			revivers,
+		});
+	}
+
+	const head = (await iterator.next()) as IteratorResult<SerializeReturn, void>;
+
+	const headValue = deserialize<T>(head.value as SerializeReturn);
+
+	(async () => {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		while (true) {
+			const result = (await iterator.next()) as IteratorResult<
+				SerializeAsyncChunk,
+				void
+			>;
+			if (result.done) {
+				break;
+			}
+			const [idx, status, obj] = result.value;
+
+			getController(idx).push([status, deserialize(obj)]);
+		}
+		// if we get here, we've finished the stream, let's go through all the enqueue map and enqueue a stream interrupt error
+		// this will only happen if receiving a malformatted stream
+		cleanup();
+	})().catch((cause: unknown) => {
+		// go through all the asyncMap and enqueue the error
+		cleanup(cause);
+	});
+
+	return headValue;
+}
+
+export function parseAsync<T>(
+	value: AsyncIterable<string, void>,
+	options?: DeserializeAsyncOptions,
+): Promise<T> {
+	return deserializeAsync(jsonAggregator(value), options);
+}
+
+async function* lineAggregator(iterable: AsyncIterable<string>) {
+	let buffer = "";
+
+	for await (const chunk of iterable) {
+		buffer += chunk;
+
+		let index: number;
+		while ((index = buffer.indexOf("\n")) !== -1) {
+			const line = buffer.slice(0, index);
+			buffer = buffer.slice(index + 1);
+			yield line;
+		}
+	}
+}
+
+/**
+ * Parse a stream of json objects from a stream of lines.
+ * The json objects can be pretty-printed, so we need to aggregate the lines
+ * until we get a complete json object.
+ */
+async function* jsonAggregator(
+	iterable: AsyncIterable<string>,
+): AsyncIterable<SerializeAsyncYield, void> {
+	let linesBuffer: string[] = [];
+
+	for await (const line of lineAggregator(iterable)) {
+		linesBuffer.push(line);
+
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const firstLine = linesBuffer.at(0)!;
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		const lastLine = linesBuffer.at(-1)!;
+
+		if (
+			// non-pretty-printed json
+			(firstLine.startsWith("{") && firstLine.endsWith("}")) ||
+			(firstLine.startsWith("[") && firstLine.endsWith("]")) ||
+			// pretty-printed json
+			(firstLine === "{" && lastLine === "}") ||
+			(firstLine === "[" && lastLine === "]")
+		) {
+			yield JSON.parse(linesBuffer.join("\n"));
+			linesBuffer = [];
+		}
 	}
 }

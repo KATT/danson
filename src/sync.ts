@@ -11,7 +11,7 @@ import {
 	JsonValue,
 } from "./utils.js";
 
-type RefLikeString = `$${number}`;
+export type RefLikeString = `$${number}`;
 const refLikeStringRegex = /^\$\d+$/;
 function isRefLikeString(thing: unknown): thing is RefLikeString {
 	return typeof thing === "string" && refLikeStringRegex.test(thing);
@@ -94,12 +94,10 @@ export function serializeSyncInternal(
 		}
 	}
 
-	const knownDuplicates = new Set<Index>();
-
 	function introspect(thing: unknown): AST {
 		const existing = values.get(thing);
 		if (existing !== undefined) {
-			knownDuplicates.add(existing);
+			options.knownDuplicates.add(existing);
 
 			return {
 				index: existing,
@@ -119,7 +117,8 @@ export function serializeSyncInternal(
 				index,
 				name: name as ReducerName,
 				type: "custom",
-				value: introspect(value),
+				value:
+					value !== undefined ? introspect(value) : (undefined as never as AST),
 			};
 		}
 
@@ -179,7 +178,7 @@ export function serializeSyncInternal(
 			const refId = getRefIdForIndex(chunk.index);
 			return refId;
 		}
-		if (knownDuplicates.has(chunk.index) && !force) {
+		if (options.knownDuplicates.has(chunk.index) && !force) {
 			const refId = getRefIdForIndex(chunk.index);
 			const json = toJson(chunk, true);
 
@@ -230,7 +229,7 @@ export function serializeSyncInternal(
 		ast,
 		indexToRefRecord,
 		json,
-		knownDuplicates,
+		knownDuplicates: options.knownDuplicates,
 		refCounter: options.refCounter,
 		refs: Object.keys(refs).length > 0 ? refs : undefined,
 	};
@@ -317,23 +316,23 @@ export type Reviver<T> = RecursiveReviverFn<T> | ReviverFn<T>;
 
 export type ReviverRecord = Record<string, Reviver<unknown>>;
 export interface DeserializeOptions extends SerializeReturn {
+	cache?: Map<RefLikeString, unknown>;
 	revivers?: ReviverRecord;
 }
-
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const revivers = options.revivers ?? {};
-	const refResult = new Map<RefLikeString, unknown>();
+	const cache = options.cache ?? new Map<RefLikeString, unknown>();
 
 	function getRefResult(refId: RefLikeString): unknown {
-		if (refResult.has(refId)) {
-			return refResult.get(refId);
+		if (cache.has(refId)) {
+			return cache.get(refId);
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		const refValue = options.refs![refId]!;
 
 		const result = deserializeValue(refValue, refId);
-		refResult.set(refId, result);
+		cache.set(refId, result);
 
 		return result;
 	}
@@ -349,7 +348,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		if (Array.isArray(value)) {
 			const result: unknown[] = [];
 			if (refId) {
-				refResult.set(refId, result);
+				cache.set(refId, result);
 			}
 			for (const it of value) {
 				result.push(deserializeValue(it));
@@ -372,7 +371,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 				}
 				const result = reviver.create();
 				if (refId) {
-					refResult.set(refId, result);
+					cache.set(refId, result);
 				}
 				reviver.set(result, deserializeValue(refValue.value));
 				return result;
@@ -380,7 +379,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 
 			const result: Record<string, unknown> = {};
 			if (refId) {
-				refResult.set(refId, result);
+				cache.set(refId, result);
 			}
 			for (const [key, val] of Object.entries(value)) {
 				result[key] = deserializeValue(val);
