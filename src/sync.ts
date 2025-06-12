@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters */
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {
 	Branded,
 	counter,
@@ -153,7 +151,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			};
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-base-to-string
+		// eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
 		throw new Error(`Do not know how to serialize ${thing}`);
 	}
 
@@ -164,7 +162,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			return "$0";
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/restrict-template-expressions
 		indexToRefRecord[index] ??= `$${internal.refCounter()}`;
 		return indexToRefRecord[index];
 	}
@@ -355,6 +353,3 @@ export function parseSync<T>(value: string, options?: ParseSyncOptions) {
 		...json,
 	});
 }
-
-/* eslint-enable @typescript-eslint/restrict-template-expressions */
-/* eslint-enable @typescript-eslint/no-unnecessary-type-parameters */

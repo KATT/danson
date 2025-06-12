@@ -282,7 +282,6 @@ export async function deserializeAsync<T>(
 	}
 
 	/* eslint-disable perfectionist/sort-objects */
-
 	const revivers: ReviverRecord = {
 		...options?.revivers,
 
@@ -361,7 +360,7 @@ export async function deserializeAsync<T>(
 		},
 	};
 	/* eslint-enable perfectionist/sort-objects */
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+
 	function deserialize<TShape>(value: SerializeReturn) {
 		return deserializeSync<TShape>({
 			...options,
