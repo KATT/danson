@@ -6,22 +6,13 @@ import {
 	ReducerRecord,
 	RefLikeString,
 	ReviverRecord,
+	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeReturn,
-	serializeSyncInternal,
-	SerializeSyncInternalOptions,
-	serializeSyncInternalOptions,
+	serializeSync,
 	StringifyOptions,
-	stringifySyncInternal,
 } from "./sync.js";
-import {
-	Branded,
-	counter,
-	CounterFn,
-	JsonArray,
-	JsonObject,
-	JsonValue,
-} from "./utils.js";
+import { Branded, counter, CounterFn } from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
 	return value as Branded<T, "chunkStatus">;
@@ -60,11 +51,7 @@ export async function* stringifyAsync(
 	value: unknown,
 	options: StringifyAsyncOptions = {},
 ) {
-	const opts = serializeSyncInternalOptions(options);
-	const iterator = serializeAsyncInternal(value, {
-		...opts,
-		chunkIndexCounter: counter(),
-	});
+	const iterator = serializeAsyncInternal(value, options);
 
 	for await (const item of iterator) {
 		yield JSON.stringify(item, null, options.space) + "\n";
@@ -72,8 +59,7 @@ export async function* stringifyAsync(
 }
 
 export interface SerializeAsyncInternalOptions
-	extends SerializeSyncInternalOptions {
-	chunkIndexCounter: CounterFn<"chunkIndex">;
+	extends Omit<SerializeOptions, "internal"> {
 	coerceError?: (cause: unknown) => unknown;
 }
 
@@ -157,13 +143,21 @@ export async function* serializeAsyncInternal(
 			});
 		},
 	};
-	const opts = serializeSyncInternalOptions({
-		...options,
-		reducers,
-	});
+	const internal: SerializeInternalOptions = {
+		indexCounter: counter(),
+		indexToRefRecord: {},
+		knownDuplicates: new Set(),
+		refCounter: counter(),
+	};
+
+	const chunkIndexCounter = counter<"chunkIndex">();
 
 	function serialize(value: unknown): SerializeReturn {
-		const result = serializeSyncInternal(value, opts);
+		const result = serializeSync(value, {
+			...options,
+			internal,
+			reducers,
+		});
 		return {
 			json: result.json,
 			refs: result.refs,
@@ -176,7 +170,7 @@ export async function* serializeAsyncInternal(
 	function registerAsync(
 		callback: () => AsyncIterable<[ChunkStatus, SerializeReturn]>,
 	) {
-		const idx = opts.chunkIndexCounter();
+		const idx = chunkIndexCounter();
 
 		const iterable = callback();
 

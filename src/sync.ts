@@ -75,21 +75,19 @@ type RefRecord = Record<RefLikeString, JsonValue>;
 
 const reservedReducerNames = new Set(["string"]);
 
-export interface SerializeSyncInternalOptions extends SerializeOptions {
-	indexCounter: CounterFn<"index">;
-	indexToRefRecord: Record<Index, RefIndex>;
-	knownDuplicates: Set<Index>;
-	reducers: ReducerRecord;
-	refCounter: CounterFn<"ref">;
-}
-export function serializeSyncInternal(
-	value: unknown,
-	options: SerializeSyncInternalOptions,
-) {
+export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	const values = new Map<unknown, Index>();
 
+	const internal: SerializeInternalOptions = options.internal ?? {
+		indexCounter: counter(),
+		indexToRefRecord: {},
+		knownDuplicates: new Set(),
+		refCounter: counter(),
+	};
+	const reducers = options.reducers ?? {};
+
 	for (const name of reservedReducerNames) {
-		if (name in options.reducers) {
+		if (name in reducers) {
 			throw new Error(`${name} is a reserved reducer name`);
 		}
 	}
@@ -97,17 +95,17 @@ export function serializeSyncInternal(
 	function introspect(thing: unknown): AST {
 		const existing = values.get(thing);
 		if (existing !== undefined) {
-			options.knownDuplicates.add(existing);
+			internal.knownDuplicates.add(existing);
 
 			return {
 				index: existing,
 				type: "ref",
 			};
 		}
-		const index = options.indexCounter();
+		const index = internal.indexCounter();
 		values.set(thing, index);
 
-		for (const [name, fn] of Object.entries(options.reducers)) {
+		for (const [name, fn] of Object.entries(reducers)) {
 			const value = fn(thing);
 			if (value === false) {
 				continue;
@@ -117,8 +115,7 @@ export function serializeSyncInternal(
 				index,
 				name: name as ReducerName,
 				type: "custom",
-				value:
-					value !== undefined ? introspect(value) : (undefined as never as AST),
+				value: introspect(value),
 			};
 		}
 
@@ -168,7 +165,7 @@ export function serializeSyncInternal(
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-		indexToRefRecord[index] ??= `$${options.refCounter()}`;
+		indexToRefRecord[index] ??= `$${internal.refCounter()}`;
 		return indexToRefRecord[index];
 	}
 
@@ -178,7 +175,7 @@ export function serializeSyncInternal(
 			const refId = getRefIdForIndex(chunk.index);
 			return refId;
 		}
-		if (options.knownDuplicates.has(chunk.index) && !force) {
+		if (internal.knownDuplicates.has(chunk.index) && !force) {
 			const refId = getRefIdForIndex(chunk.index);
 			const json = toJson(chunk, true);
 
@@ -226,11 +223,7 @@ export function serializeSyncInternal(
 	const json = toJson(ast, true);
 
 	return {
-		ast,
-		indexToRefRecord,
 		json,
-		knownDuplicates: options.knownDuplicates,
-		refCounter: options.refCounter,
 		refs: Object.keys(refs).length > 0 ? refs : undefined,
 	};
 }
@@ -240,70 +233,27 @@ export interface SerializeReturn {
 	refs?: RefRecord;
 }
 
+export interface SerializeInternalOptions {
+	indexCounter: CounterFn<"index">;
+	indexToRefRecord: Record<Index, RefIndex>;
+	knownDuplicates: Set<Index>;
+	refCounter: CounterFn<"ref">;
+}
+
 export interface SerializeOptions {
 	coerceError?: (cause: unknown) => unknown;
+	internal?: SerializeInternalOptions;
 	reducers?: ReducerRecord;
-}
-
-export function serializeSyncInternalOptions<T extends SerializeOptions>(
-	options: T,
-): Omit<T, keyof SerializeSyncInternalOptions> & SerializeSyncInternalOptions {
-	return {
-		...options,
-		indexCounter: counter(),
-		indexToRefRecord: {},
-		knownDuplicates: new Set(),
-		reducers: options.reducers ?? {},
-		refCounter: counter(),
-	};
-}
-
-export function serializeSync(
-	value: unknown,
-	options: SerializeOptions = {},
-): SerializeReturn {
-	const result = serializeSyncInternal(
-		value,
-		serializeSyncInternalOptions(options),
-	);
-	return {
-		json: result.json,
-		refs: result.refs,
-	};
 }
 
 export interface StringifyOptions extends SerializeOptions {
 	space?: number | string;
 }
 
-export function stringifySync(value: unknown, options: StringifyOptions = {}) {
-	const result = stringifySyncInternal(
-		value,
-		serializeSyncInternalOptions(options),
-	);
-	return result.text;
-}
+export function stringifySync(value: unknown, options: StringifyOptions) {
+	const result = serializeSync(value, options);
 
-interface StringifySyncInternalOptions extends SerializeSyncInternalOptions {
-	space?: number | string;
-}
-export function stringifySyncInternal(
-	value: unknown,
-	options: StringifySyncInternalOptions,
-) {
-	const result = serializeSyncInternal(value, options);
-
-	return {
-		...result,
-		text: JSON.stringify(
-			{
-				json: result.json,
-				refs: result.refs,
-			},
-			null,
-			options.space,
-		),
-	};
+	return JSON.stringify(result, null, options.space);
 }
 
 export type ReviverFn<T> = (value: unknown) => T;

@@ -8,6 +8,16 @@ import {
 } from "./sync.js";
 import { reducers, revivers } from "./test.helpers.js";
 
+test.only("circular object", () => {
+	const source: any = { a: 1 };
+	source.b = source;
+
+	const str = stringifySync(source, { reducers });
+	const result = parseSync<typeof source>(str, { revivers });
+
+	expect(result).toEqual(source);
+});
+
 test("map with circular key", () => {
 	const source = { map: new Map() };
 	source.map.set(source.map, 1);

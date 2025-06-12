@@ -104,7 +104,7 @@ test("self-referencing object in object", () => {
 		foo: "bar",
 		self: null,
 	};
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
 	child.self = child;
 
 	const source: any = {
@@ -130,7 +130,7 @@ test("self-referencing object in object", () => {
 	const result = deserializeSync<typeof source>(meta);
 
 	expect(result).toEqual(source);
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
 	expect(result.child.self).toBe(result.child);
 });
 
@@ -208,7 +208,7 @@ test("map", () => {
 	expect(result).toEqual(source);
 });
 
-test("fixme: custom complex type with self reference", () => {
+test("custom complex type with self reference", () => {
 	const map = new Map<string, unknown>();
 	map.set("a", 1);
 	map.set("b", 2);

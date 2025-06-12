@@ -6,16 +6,13 @@ import {
 	serializeAsyncInternal,
 	stringifyAsync,
 } from "./async.js";
-import { serializeSyncInternalOptions } from "./sync.js";
 import { reducers, revivers } from "./test.helpers.js";
 import {
 	aggregateAsyncIterable,
 	serverResource,
 	sleep,
 	waitError,
-	withDebug,
 } from "./test.utils.js";
-import { counter } from "./utils.js";
 
 test("serialize promise", async () => {
 	const promise = (async () => {
@@ -28,8 +25,6 @@ test("serialize promise", async () => {
 	});
 
 	const iterable = serializeAsyncInternal(source(), {
-		...serializeSyncInternalOptions({}),
-		chunkIndexCounter: counter(),
 		reducers,
 	});
 
@@ -64,7 +59,7 @@ test("serialize promise", async () => {
 	`);
 });
 
-test.fails("serialize async iterable", async () => {
+test("serialize async iterable", async () => {
 	const source = () => ({
 		it1: (async function* () {
 			yield 1;
@@ -75,8 +70,6 @@ test.fails("serialize async iterable", async () => {
 	});
 
 	const iterable = serializeAsyncInternal(source(), {
-		...serializeSyncInternalOptions({}),
-		chunkIndexCounter: counter(),
 		reducers,
 	});
 
@@ -282,8 +275,6 @@ test("serialize and parse", async () => {
 	});
 	type Source = ReturnType<typeof source>;
 	const serialized = serializeAsyncInternal(source(), {
-		...serializeSyncInternalOptions({}),
-		chunkIndexCounter: counter(),
 		reducers,
 	});
 
@@ -481,7 +472,7 @@ test("stringify and parse async values with errors", async () => {
 	}
 });
 
-test.fails("stringify and parse ReadableStream", async () => {
+test.fails("fixme: stringify and parse ReadableStream", async () => {
 	const source = () => ({
 		stream: new ReadableStream<string>({
 			async pull(controller) {
@@ -674,7 +665,7 @@ test.fails("todo(?) - referential integrity across chunks", async () => {
 	expect(aggregate.items[0]).toBe(aggregate.items[1]);
 });
 
-test.fails("todo: custom type", async () => {
+test.fails("fixme: todo: custom type", async () => {
 	class Vector {
 		constructor(
 			public x: number,
