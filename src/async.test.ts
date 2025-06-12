@@ -472,7 +472,7 @@ test("stringify and parse async values with errors", async () => {
 	}
 });
 
-test.fails("fixme: stringify and parse ReadableStream", async () => {
+test("stringify and parse ReadableStream", async () => {
 	const source = () => ({
 		stream: new ReadableStream<string>({
 			async pull(controller) {
@@ -484,8 +484,12 @@ test.fails("fixme: stringify and parse ReadableStream", async () => {
 	});
 	type Source = ReturnType<typeof source>;
 
-	const iterable = stringifyAsync(source());
-	const result = await parseAsync<Source>(iterable);
+	const iterable = stringifyAsync(source(), {
+		reducers,
+	});
+	const result = await parseAsync<Source>(iterable, {
+		revivers,
+	});
 
 	expect(result.stream).toBeInstanceOf(ReadableStream);
 
@@ -665,7 +669,7 @@ test.fails("todo(?) - referential integrity across chunks", async () => {
 	expect(aggregate.items[0]).toBe(aggregate.items[1]);
 });
 
-test.fails("fixme: todo: custom type", async () => {
+test("custom type", async () => {
 	class Vector {
 		constructor(
 			public x: number,
