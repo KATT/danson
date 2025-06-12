@@ -359,3 +359,25 @@ test("stringify custom type", () => {
 	});
 	expect(result).toEqual(source);
 });
+
+test("serialize/deserialize undefined", () => {
+	const source = undefined;
+
+	const obj = serializeSync(source, {
+		reducers,
+	});
+	expect(obj).toMatchInlineSnapshot(`
+		{
+		  "json": {
+		    "_": "$",
+		    "type": "undef",
+		    "value": 0,
+		  },
+		  "refs": undefined,
+		}
+	`);
+
+	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+	const result = deserializeSync<typeof source>({ ...obj, revivers });
+	expect(result).toEqual(source);
+});

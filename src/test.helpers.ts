@@ -55,7 +55,7 @@ export const transformers = {
 	undef: {
 		reducer: (value) => {
 			if (value === undefined) {
-				return undefined;
+				return 0;
 			}
 			return false;
 		},

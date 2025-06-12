@@ -43,22 +43,7 @@ const ASYNC_ITERABLE_STATUS_RETURN = chunkStatus(2);
 type ChunkIndex = ReturnType<CounterFn<"chunkIndex">>;
 type ChunkStatus = Branded<number, "chunkStatus">;
 
-export interface StringifyAsyncOptions extends StringifyOptions {
-	coerceError?: (cause: unknown) => unknown;
-}
-
-export async function* stringifyAsync(
-	value: unknown,
-	options: StringifyAsyncOptions = {},
-) {
-	const iterator = serializeAsyncInternal(value, options);
-
-	for await (const item of iterator) {
-		yield JSON.stringify(item, null, options.space) + "\n";
-	}
-}
-
-export interface SerializeAsyncInternalOptions
+export interface SerializeAsyncOptions
 	extends Omit<SerializeOptions, "internal"> {
 	coerceError?: (cause: unknown) => unknown;
 }
@@ -71,9 +56,9 @@ type SerializeAsyncYield =
 	// First chunk
 	| SerializeReturn;
 
-export async function* serializeAsyncInternal(
+export async function* serializeAsync(
 	value: unknown,
-	options: SerializeAsyncInternalOptions,
+	options: SerializeAsyncOptions,
 ) {
 	/* eslint-disable perfectionist/sort-objects */
 	const reducers: ReducerRecord = {
@@ -203,6 +188,24 @@ export async function* serializeAsyncInternal(
 		yield item;
 	}
 }
+
+export interface StringifyAsyncOptions
+	extends SerializeAsyncOptions,
+		StringifyOptions {
+	//
+}
+
+export async function* stringifyAsync(
+	value: unknown,
+	options: StringifyAsyncOptions = {},
+) {
+	const iterator = serializeAsync(value, options);
+
+	for await (const item of iterator) {
+		yield JSON.stringify(item, null, options.space) + "\n";
+	}
+}
+
 export interface DeserializeAsyncOptions
 	extends Omit<DeserializeOptions, keyof SerializeReturn> {
 	revivers?: ReviverRecord;

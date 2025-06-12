@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import {
 	deserializeAsync,
 	parseAsync,
-	serializeAsyncInternal,
+	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
 import { reducers, revivers } from "./test.helpers.js";
@@ -24,7 +24,7 @@ test("serialize promise", async () => {
 		promiseAgain: promise,
 	});
 
-	const iterable = serializeAsyncInternal(source(), {
+	const iterable = serializeAsync(source(), {
 		reducers,
 	});
 
@@ -69,7 +69,7 @@ test("serialize async iterable", async () => {
 		})(),
 	});
 
-	const iterable = serializeAsyncInternal(source(), {
+	const iterable = serializeAsync(source(), {
 		reducers,
 	});
 
@@ -117,7 +117,7 @@ test("serialize async iterable", async () => {
 		      "json": {
 		        "_": "$",
 		        "type": "undef",
-		        "value": "$1",
+		        "value": 0,
 		      },
 		      "refs": undefined,
 		    },
@@ -129,7 +129,7 @@ test("serialize async iterable", async () => {
 		      "json": {
 		        "_": "$",
 		        "type": "undef",
-		        "value": "$2",
+		        "value": 0,
 		      },
 		      "refs": undefined,
 		    },
@@ -274,7 +274,7 @@ test("serialize and parse", async () => {
 		})(),
 	});
 	type Source = ReturnType<typeof source>;
-	const serialized = serializeAsyncInternal(source(), {
+	const serialized = serializeAsync(source(), {
 		reducers,
 	});
 
@@ -678,6 +678,7 @@ test("custom type", async () => {
 	}
 
 	const source = () => ({
+		// undefined,
 		vectors: (async function* () {
 			yield new Vector(1, 2);
 			yield new Vector(3, 4);
