@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 
-import { parseSync, stringifySync } from "./sync.js";
+import {
+	deserializeSync,
+	parseSync,
+	serializeSync,
+	stringifySync,
+} from "./sync.js";
 import { reducers, revivers } from "./test.helpers.js";
 
 test("map with circular key", () => {
@@ -63,4 +68,51 @@ test("map in a deep object", () => {
 	const result = parseSync<typeof source>(str, { revivers });
 
 	expect(result).toEqual(source);
+});
+
+test("custom type with recursive references", async () => {
+	class Node {
+		constructor(
+			public id: string,
+			public edges: Node[],
+		) {}
+	}
+
+	const node1 = new Node("1", []);
+	const node2 = new Node("2", [node1]);
+	const node3 = new Node("3", [node2]);
+	node1.edges.push(node3);
+
+	const source = () => ({
+		graph: {
+			node: node1,
+		},
+	});
+	type Source = ReturnType<typeof source>;
+
+	const serialized = serializeSync(source(), {
+		reducers: {
+			Node: (value) =>
+				value instanceof Node && {
+					edges: value.edges,
+					id: value.id,
+				},
+		},
+	});
+
+	const result = deserializeSync<Source>({
+		...serialized,
+		revivers: {
+			Node: {
+				create: () => new Node("", []),
+				set: (node, value) => {
+					const raw = value as { edges: Node[]; id: string };
+					(node as Node).id = raw.id;
+					(node as Node).edges = raw.edges;
+				},
+			},
+		},
+	});
+
+	expect(result).toEqual(source());
 });

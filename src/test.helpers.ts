@@ -1,4 +1,4 @@
-import { ReducerFn, ReducerRecord, ReviverFn, ReviverRecord } from "./sync.js";
+import { ReducerFn, ReducerRecord, Reviver, ReviverRecord } from "./sync.js";
 
 export const transformers = {
 	BigInt: {
@@ -26,16 +26,31 @@ export const transformers = {
 			}
 			return Array.from(value.entries());
 		},
-		reviver: (value) => new Map(value as [unknown, unknown][]),
+		reviver: {
+			create: () => new Map(),
+			set: (map, values) => {
+				for (const [key, value] of values as [unknown, unknown][]) {
+					(map as Map<unknown, unknown>).set(key, value);
+				}
+			},
+		},
 	},
 	Set: {
 		reducer: (value) => {
 			if (!(value instanceof Set)) {
 				return false;
 			}
+
 			return Array.from(value.values());
 		},
-		reviver: (value) => new Set(value as unknown[]),
+		reviver: {
+			create: () => new Set(),
+			set: (set, values) => {
+				for (const value of values as unknown[]) {
+					(set as Set<unknown>).add(value);
+				}
+			},
+		},
 	},
 	undef: {
 		reducer: (value) => {
@@ -50,7 +65,7 @@ export const transformers = {
 	string,
 	{
 		reducer: ReducerFn;
-		reviver: ReviverFn;
+		reviver: Reviver<unknown>;
 	}
 >;
 
