@@ -41,10 +41,10 @@ for await (const chunk of stringified) {
 {
 	json: {
 		foo: "bar",
-		promise: {
+		promise: { // tells the deserializer that this is a promise
 			_: "$",
-			type: "Promise", // <-- holds the reference to the promise
-			value: 1,
+			type: "Promise",
+			value: 1, // <-- index of the promise
 		},
 	},
 }
