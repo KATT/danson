@@ -162,13 +162,12 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		const [parent, key] = location;
 
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-		const originalValue = parent[key as any] as JsonValue;
+		const value = parent[key as any] as JsonValue;
 
-		// Replace with reference
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
 		(parent as any)[key] = refId;
 
-		refs[refId] = originalValue;
+		refs[refId] = value;
 	}
 
 	return {
