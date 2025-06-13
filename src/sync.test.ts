@@ -294,7 +294,6 @@ test("special handling - ref-like strings", () => {
 		      "value": "$1",
 		    },
 		  },
-		  "refs": undefined,
 		}
 	`);
 
@@ -379,7 +378,6 @@ test("serialize/deserialize undefined", () => {
 		    "type": "undef",
 		    "value": 0,
 		  },
-		  "refs": undefined,
 		}
 	`);
 

@@ -197,10 +197,14 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		refs[refId] = value;
 	}
 
-	return {
+	const result: SerializeReturn = {
 		json,
-		refs: Object.keys(refs).length > 0 ? refs : undefined,
 	};
+	if (Object.keys(refs).length > 0) {
+		result.refs = refs;
+	}
+
+	return result;
 }
 
 export interface SerializeReturn {
