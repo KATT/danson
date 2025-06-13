@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.6.0](https://github.com/KATT/danson/compare/0.5.0...0.6.0) (2025-06-13)
+
+### Features
+
+- add readme ([#2](https://github.com/KATT/danson/issues/2)) ([10890c0](https://github.com/KATT/danson/commit/10890c0ab712db21a89716ed6ca77bc1ef56f01d))
+
 # [0.5.0](https://github.com/KATT/danson/compare/0.4.1...0.5.0) (2025-06-13)
 
 ### Features
