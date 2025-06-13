@@ -27,24 +27,6 @@ npm install danson
 
 ## Contributors
 
-<!-- spellchecker: disable -->
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://katt.dev"><img src="https://avatars.githubusercontent.com/u/459267?v=4?s=100" width="100px;" alt="Alex / KATT"/><br /><sub><b>Alex / KATT</b></sub></a><br /><a href="https://github.com/JoshuaKGoldberg/create-typescript-app/commits?author=KATT" title="Code">💻</a>  <a href="https://github.com/JoshuaKGoldberg/create-typescript-app/commits?author=KATT" title="Documentation">📖</a> <a href="#ideas-KATT" title="Ideas, Planning, & Feedback">🤔</a> <a href="#infra-KATT" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#maintenance-KATT" title="Maintenance">🚧</a>  <a href="#tool-KATT" title="Tools">🔧</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-<!-- spellchecker: enable -->
-
 <!-- You can remove this notice if you don't want it 🙂 no worries! -->
 
 > 💝 This package was templated with [`create-typescript-app`](https://github.com/JoshuaKGoldberg/create-typescript-app) using the [Bingo framework](https://create.bingo).
