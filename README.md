@@ -14,6 +14,52 @@
 
 Example: https://stackblitz.com/github/KATT/danson/tree/main/example
 
+### Example
+
+#### Input
+
+```ts
+const source = {
+	foo: "bar",
+	promise: (async () => {
+		await sleep(1000);
+		return "hello promise";
+	})(),
+};
+
+const stringified = stringifySync(source, {
+	space: 2,
+});
+for await (const chunk of stringified) {
+	console.log(chunk);
+}
+```
+
+#### Output
+
+```json
+{
+	"json": {
+		"foo": "bar",
+		"promise": {
+			"_": "$",
+			"type": "Promise", // <-- holds the reference to the promise
+			"value": 1
+		}
+	}
+}
+```
+
+```json
+[
+	1, // <-- index of the promise
+	0, // <-- promise succeeded
+	{
+		"json": "hello promise"
+	}
+]
+```
+
 ## Installation
 
 ```shell
