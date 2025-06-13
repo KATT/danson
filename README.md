@@ -16,9 +16,9 @@ DanSon is a progressive JSON serializer and deserializer that can serialize and 
 
 ### Examples
 
-#### Streaming
-
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
+
+#### Streaming
 
 ##### Input
 
