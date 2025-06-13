@@ -1,3 +1,4 @@
+import { Temporal } from "@js-temporal/polyfill";
 import { expect, test } from "vitest";
 
 import {
@@ -342,35 +343,24 @@ test("stringify deduped object", () => {
 
 test("stringify custom type", () => {
 	const source = {
-		bigint: 1n,
+		instant: Temporal.Now.instant(),
 	};
 
 	const str = stringifySync(source, {
 		serializers: {
-			BigInt: (value) => {
-				if (typeof value !== "bigint") {
-					return false;
+			"Temporal.Instant": (value) => {
+				if (value instanceof Temporal.Instant) {
+					return value.toJSON();
 				}
-				return value.toString();
+				return false;
 			},
 		},
-		space: "\t",
 	});
-	expect(str).toMatchInlineSnapshot(`
-		"{
-			"json": {
-				"bigint": {
-					"_": "$",
-					"type": "BigInt",
-					"value": "1"
-				}
-			}
-		}"
-	`);
+	// console.log(str);
 
 	const result = parseSync(str, {
 		deserializers: {
-			BigInt: (value) => BigInt(value as string),
+			"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
 		},
 	});
 	expect(result).toEqual(source);

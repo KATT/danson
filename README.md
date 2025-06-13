@@ -25,6 +25,39 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
+### Serializing custom objects
+
+```ts
+import { Temporal } from "@js-temporal/polyfill";
+import { parseSync, stringifySync } from "danson";
+
+const source = {
+	instant: Temporal.Now.instant(),
+};
+
+const stringified = stringifySync(source, {
+	serializers: {
+		"Temporal.Instant": (value) => value.toJSON(),
+	},
+	space: 2,
+});
+/*
+json: {
+	instant: {
+	_: '$',
+	type: 'Temporal.Instant',
+	value: '2025-06-13T15:24:51.30029128Z'
+	}
+}
+*/
+
+const result = parseSync<typeof source>(stringified, {
+	deserializers: {
+		"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
+	},
+});
+```
+
 ### Streaming
 
 #### Input
