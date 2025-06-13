@@ -6,7 +6,6 @@ import {
 	isPlainObject,
 	JsonArray,
 	JsonObject,
-	JsonPrimitive,
 	JsonValue,
 } from "./utils.js";
 
@@ -28,41 +27,6 @@ function isRefLikeString(thing: unknown): thing is RefLikeString {
 
 type Index = ReturnType<CounterFn<"index">>;
 
-/**
- * Abstract Syntax Tree (AST)
- *
- * This is the internal representation of the data that we're serializing.
- * It's a tree of nodes that represent the data.
- *
- * The tree is constructed by the `introspect` function.
- *
- */
-type AST = { index: Index } & (
-	| {
-			name: ReducerName;
-			type: "custom";
-			value: AST;
-	  }
-	| {
-			type: "array";
-			value: AST[];
-	  }
-	| {
-			type: "object";
-			value: Record<string, AST>;
-	  }
-	| {
-			type: "primitive";
-			value: JsonPrimitive;
-	  }
-	| {
-			type: "ref";
-	  }
-	| {
-			type: "ref-like-string";
-			value: RefLikeString;
-	  }
-);
 export type ReducerName = Branded<string, "reducer">;
 export type ReducerFn = (value: unknown) => unknown;
 export type ReducerRecord = Record<string, ReducerFn>;
