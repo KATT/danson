@@ -41,6 +41,16 @@ test("object", () => {
 	expect(deserializeSync(meta)).toEqual(source);
 });
 
+test("object without prototype", () => {
+	const source = Object.create(null);
+	source.a = 1;
+	source.b = 2;
+	source.c = 3;
+	const meta = serializeSync(source);
+
+	expect(deserializeSync(meta)).toEqual(source);
+});
+
 test("duplicate values", () => {
 	const someObj1 = {
 		a: 1,
