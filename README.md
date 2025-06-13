@@ -37,7 +37,7 @@ for await (const chunk of stringified) {
 
 #### Output
 
-```jsonc
+```js
 {
 	"json": {
 		"foo": "bar",
@@ -50,14 +50,14 @@ for await (const chunk of stringified) {
 }
 ```
 
-```jsonc
+```js
 [
 	1, // <-- index of the promise
 	0, // <-- promise succeeded
 	{
-		"json": "hello promise",
+		json: "hello promise",
 	},
-]
+];
 ```
 
 ## Installation
