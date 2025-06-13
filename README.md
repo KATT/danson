@@ -14,6 +14,13 @@
 
 DanSon is a progressive JSON serializer and deserializer that can serialize and deserialize arbitrary objects into JSON.
 
+## Features
+
+- Streaming of `Promise`s, `AsyncIterable`s, and `ReadableStream`s
+- Custom serializers / deserializers
+- De-duplication of objects (optional)
+- Circular references
+
 ## Examples
 
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
@@ -48,11 +55,10 @@ for await (const chunk of stringified) {
 {
 	"json": {
 		"foo": "bar",
-		
-		"promise": { // tell the deserializer that this is a special type:
-			"_": "$",
-			"type": "Promise", // <-- it is a promise
-			"value": 1 // <-- index of the promise that will come later
+		"promise": { 
+			"_": "$", // informs the deserializer that this is a special type
+			"type": "Promise", // it is a Promise
+			"value": 1 // index of the Promise that will come later
 		}
 	}
 }
@@ -60,8 +66,8 @@ for await (const chunk of stringified) {
 
 ```jsonc
 [
-	1, // <-- index of the promise
-	0, // <-- promise succeeded
+	1, // index of the Promise
+	0, // Promise succeeded (0 = success, 1 = failure)
 	{
 		"json": "hello promise"
 	}
