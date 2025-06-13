@@ -69,7 +69,7 @@ export default tseslint.config(
 	},
 	{
 		extends: [vitest.configs.recommended],
-		files: ["**/*.test.*"],
+		files: ["**/*.test.*", "**/*.bench.*"],
 		rules: {
 			"@typescript-eslint/no-explicit-any": "off",
 			"@typescript-eslint/no-non-null-assertion": "off",

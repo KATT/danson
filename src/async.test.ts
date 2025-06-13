@@ -6,13 +6,13 @@ import {
 	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
-import { reducers, revivers } from "./test.helpers.js";
 import {
 	aggregateAsyncIterable,
 	serverResource,
 	sleep,
 	waitError,
 } from "./test.utils.js";
+import { reducers, revivers } from "./transformers.js";
 
 test("serialize promise", async () => {
 	const promise = (async () => {

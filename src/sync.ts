@@ -4,15 +4,26 @@ import {
 	CounterFn,
 	isJsonPrimitive,
 	isPlainObject,
+	JsonArray,
 	JsonObject,
 	JsonPrimitive,
 	JsonValue,
 } from "./utils.js";
 
 export type RefLikeString = `$${number}`;
-const refLikeStringRegex = /^\$\d+$/;
+
 function isRefLikeString(thing: unknown): thing is RefLikeString {
-	return typeof thing === "string" && refLikeStringRegex.test(thing);
+	if (typeof thing !== "string" || thing.length < 2 || !thing.startsWith("$")) {
+		return false;
+	}
+	for (let i = 1; i < thing.length; i++) {
+		const char = thing.charCodeAt(i);
+		// not 0-9
+		if (char < 48 || char > 57) {
+			return false;
+		}
+	}
+	return true;
 }
 
 type Index = ReturnType<CounterFn<"index">>;
@@ -74,7 +85,11 @@ type RefRecord = Record<RefLikeString, JsonValue>;
 const reservedReducerNames = new Set(["string"]);
 
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
-	const values = new Map<unknown, Index>();
+	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
+
+	const values = new Map<unknown, [Index, Location]>();
+	const refs: RefRecord = {};
+	const dupes = new Map<RefLikeString, Location>();
 
 	const internal: SerializeInternalOptions = options.internal ?? {
 		indexCounter: counter(),
@@ -90,65 +105,66 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 	}
 
-	function introspect(thing: unknown): AST {
+	function toJson(thing: unknown, location: Location): JsonValue {
 		const existing = values.get(thing);
-		if (existing !== undefined) {
-			internal.knownDuplicates.add(existing);
 
-			return {
-				index: existing,
-				type: "ref",
-			};
+		if (existing) {
+			const [index, location] = existing;
+			const refId: RefLikeString = getRefIdForIndex(index);
+
+			dupes.set(refId, location);
+
+			return refId;
 		}
 		const index = internal.indexCounter();
-		values.set(thing, index);
+		values.set(thing, [index, location]);
 
-		for (const [name, fn] of Object.entries(reducers)) {
-			const value = fn(thing);
+		for (const name in reducers) {
+			const fn = reducers[name];
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			const value = fn!(thing);
 			if (value === false) {
 				continue;
 			}
 
-			return {
-				index,
-				name: name as ReducerName,
-				type: "custom",
-				value: introspect(value),
+			const customValue: CustomValue = {
+				_: "$",
+				type: name as ReducerName,
+				value: 0,
 			};
+
+			customValue.value = toJson(value, [customValue, "value"]);
+
+			return customValue;
 		}
 
 		if (isJsonPrimitive(thing)) {
 			if (isRefLikeString(thing)) {
-				// special handling - things like "$1"
-				return {
-					index,
-					type: "ref-like-string",
+				const value: CustomValue = {
+					_: "$",
+					type: "string" as ReducerName,
 					value: thing,
 				};
+				return value;
 			}
-			return {
-				index,
-				type: "primitive",
-				value: thing,
-			};
+
+			return thing;
 		}
 
 		if (isPlainObject(thing)) {
-			return {
-				index,
-				type: "object",
-				value: Object.fromEntries(
-					Object.entries(thing).map(([key, value]) => [key, introspect(value)]),
-				),
-			};
+			const result: Record<string, JsonValue> = {};
+			for (const key in thing) {
+				result[key] = toJson(thing[key], [result, key]);
+			}
+			return result;
 		}
 
 		if (Array.isArray(thing)) {
-			return {
-				index,
-				type: "array",
-				value: thing.map(introspect),
-			};
+			const result: JsonValue[] = [];
+			for (const [index, it] of thing.entries()) {
+				result.push(toJson(it, [result, index]));
+			}
+			return result;
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
@@ -161,64 +177,35 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			// special handling for self-referencing objects at top level
 			return "$0";
 		}
+		if (indexToRefRecord[index]) {
+			return indexToRefRecord[index];
+		}
 
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/restrict-template-expressions
-		indexToRefRecord[index] ??= `$${internal.refCounter()}`;
-		return indexToRefRecord[index];
+		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+		const refId: RefLikeString = `$${internal.refCounter()}`;
+		indexToRefRecord[index] = refId;
+
+		return refId;
 	}
 
-	const refs: RefRecord = {};
-	function toJson(chunk: AST, force: boolean): JsonValue {
-		if (chunk.type === "ref") {
-			const refId = getRefIdForIndex(chunk.index);
-			return refId;
-		}
-		if (internal.knownDuplicates.has(chunk.index) && !force) {
-			const refId = getRefIdForIndex(chunk.index);
-			const json = toJson(chunk, true);
+	const json = toJson(value, null);
 
-			refs[refId] = json;
-			return refId;
+	for (const [refId, location] of dupes) {
+		if (!location) {
+			continue;
 		}
 
-		switch (chunk.type) {
-			case "array": {
-				return chunk.value.map((v) => toJson(v, false));
-			}
-			case "custom": {
-				const customValue: CustomValue = {
-					_: "$",
-					type: chunk.name,
-					value: toJson(chunk.value, false),
-				};
+		const [parent, key] = location;
 
-				return customValue;
-			}
-			case "object": {
-				const json: JsonObject = {};
-				for (const [key, value] of Object.entries(chunk.value)) {
-					json[key] = toJson(value, false);
-				}
-				return json;
-			}
-			case "primitive": {
-				return chunk.value;
-			}
-			case "ref-like-string": {
-				const customValue: CustomValue = {
-					_: "$",
-					type: "string" as ReducerName,
-					value: chunk.value,
-				};
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+		const originalValue = parent[key as any] as JsonValue;
 
-				return customValue;
-			}
-		}
+		// Replace with reference
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+		(parent as any)[key] = refId;
+
+		refs[refId] = originalValue;
 	}
-
-	const ast = introspect(value);
-
-	const json = toJson(ast, true);
 
 	return {
 		json,
@@ -234,7 +221,7 @@ export interface SerializeReturn {
 export interface SerializeInternalOptions {
 	indexCounter: CounterFn<"index">;
 	indexToRefRecord: Record<Index, RefIndex>;
-	knownDuplicates: Set<Index>;
+	knownDuplicates: Set<[Index, Location]>;
 	refCounter: CounterFn<"ref">;
 }
 

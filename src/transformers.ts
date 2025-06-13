@@ -35,6 +35,19 @@ export const transformers = {
 			},
 		},
 	},
+	RegExp: {
+		reducer: (value) => {
+			if (!(value instanceof RegExp)) {
+				return false;
+			}
+			const { flags, source } = value;
+			return [source, flags];
+		},
+		reviver: (value) => {
+			const [source, flags] = value as [string, string];
+			return new RegExp(source, flags);
+		},
+	},
 	Set: {
 		reducer: (value) => {
 			if (!(value instanceof Set)) {

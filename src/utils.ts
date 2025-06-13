@@ -16,23 +16,40 @@ export function counter<T extends string>(): CounterFn<T> {
 		return ++i as Branded<number, `counter-${T}`>;
 	};
 }
+
 export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {
 	const type = typeof thing;
 	return type === "boolean" || type === "number" || type === "string";
 }
 
-const objectProtoNames = Object.getOwnPropertyNames(Object.prototype)
-	.sort()
-	.join("\0");
-export function isPlainObject(
-	thing: unknown,
-): thing is Record<string, unknown> {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-	const proto = Object.getPrototypeOf(thing);
+function isObject(o: unknown): o is Record<string, unknown> {
+	return Object.prototype.toString.call(o) === "[object Object]";
+}
 
-	return (
-		proto === Object.prototype ||
-		proto === null ||
-		Object.getOwnPropertyNames(proto).sort().join("\0") === objectProtoNames
-	);
+export function isPlainObject(o: unknown): o is Record<string, unknown> {
+	if (!isObject(o)) {
+		return false;
+	}
+
+	// If has modified constructor
+	const ctor = o.constructor;
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+	if (ctor === undefined) {
+		return true;
+	}
+
+	// If has modified prototype
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+	const prot = ctor.prototype;
+	if (!isObject(prot)) {
+		return false;
+	}
+
+	// If constructor does not have an Object-specific method
+	if (!Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf")) {
+		return false;
+	}
+
+	// Most likely a plain Object
+	return true;
 }

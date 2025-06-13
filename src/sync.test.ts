@@ -6,7 +6,7 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { reducers, revivers } from "./test.helpers.js";
+import { reducers, revivers } from "./transformers.js";
 
 test("string", () => {
 	const source = "hello";
@@ -65,6 +65,7 @@ test("duplicate values", () => {
 		4: "$2",
 	});
 
+	expect(meta.refs).toBeTruthy();
 	expect(meta.refs).toMatchInlineSnapshot(`
 		{
 		  "$1": {
