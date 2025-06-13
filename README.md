@@ -14,13 +14,13 @@
 
 DanSon is a progressive JSON serializer and deserializer that can serialize and deserialize arbitrary objects into JSON.
 
-### Examples
+## Examples
 
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
-#### Streaming
+### Streaming
 
-##### Input
+#### Input
 
 ```ts
 const source = {
@@ -39,7 +39,7 @@ for await (const chunk of stringified) {
 }
 ```
 
-##### Output
+#### Output
 
 <!-- prettier-ignore-start -->
 <!-- eslint-disable -->
