@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1](https://github.com/KATT/danson/compare/0.6.0...0.6.1) (2025-06-13)
+
+### Bug Fixes
+
+- omit ref ([14a236e](https://github.com/KATT/danson/commit/14a236e4501429c9cf343b3f314fedb44014ea53))
+
 # [0.6.0](https://github.com/KATT/danson/compare/0.5.0...0.6.0) (2025-06-13)
 
 ### Features
