@@ -125,6 +125,9 @@ importers:
       tsx:
         specifier: ^4.20.3
         version: 4.20.3
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
 
 packages:
 
