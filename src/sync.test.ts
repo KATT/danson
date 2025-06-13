@@ -51,7 +51,7 @@ test("object without prototype", () => {
 	expect(deserializeSync(meta)).toEqual(source);
 });
 
-test("duplicate values", () => {
+test("dedupe", () => {
 	const someObj1 = {
 		a: 1,
 	};
@@ -66,7 +66,9 @@ test("duplicate values", () => {
 		4: someObj2,
 	};
 
-	const meta = serializeSync(source);
+	const meta = serializeSync(source, {
+		dedupe: true,
+	});
 
 	expect(meta.json).toEqual({
 		1: "$1",
@@ -303,7 +305,7 @@ test("special handling - ref-like strings", () => {
 	expect(result).toEqual(source);
 });
 
-test("stringify object", () => {
+test("stringify deduped object", () => {
 	const obj = {
 		a: 1,
 		b: 2,
@@ -314,7 +316,10 @@ test("stringify object", () => {
 		objAgain: obj,
 	};
 
-	const str = stringifySync(source, { space: 2 });
+	const str = stringifySync(source, {
+		dedupe: true,
+		space: 2,
+	});
 	expect(str).toMatchInlineSnapshot(`
 		"{
 		  "json": {

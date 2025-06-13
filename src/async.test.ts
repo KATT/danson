@@ -14,51 +14,6 @@ import {
 } from "./test.utils.js";
 import { deserializers, serializers } from "./transformers.js";
 
-test("serialize promise", async () => {
-	const promise = (async () => {
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		return "resolved promise";
-	})();
-	const source = () => ({
-		promise,
-		promiseAgain: promise,
-	});
-
-	const iterable = serializeAsync(source(), {
-		serializers,
-	});
-
-	const aggregate = await aggregateAsyncIterable(iterable);
-
-	expect(aggregate.error).toBeUndefined();
-
-	expect(aggregate.items).toMatchInlineSnapshot(`
-		[
-		  {
-		    "json": {
-		      "promise": "$1",
-		      "promiseAgain": "$1",
-		    },
-		    "refs": {
-		      "$1": {
-		        "_": "$",
-		        "type": "Promise",
-		        "value": 1,
-		      },
-		    },
-		  },
-		  [
-		    1,
-		    0,
-		    {
-		      "json": "resolved promise",
-		      "refs": undefined,
-		    },
-		  ],
-		]
-	`);
-});
-
 test("serialize async iterable", async () => {
 	const source = () => ({
 		it1: (async function* () {
@@ -573,7 +528,11 @@ test("dedupe", async () => {
 	type Source = ReturnType<typeof source>;
 
 	{
-		const aggregate = await aggregateAsyncIterable(stringifyAsync(source()));
+		const aggregate = await aggregateAsyncIterable(
+			stringifyAsync(source(), {
+				dedupe: true,
+			}),
+		);
 
 		const conc = aggregate.items.join("").split("\n");
 

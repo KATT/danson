@@ -48,12 +48,26 @@ type RefRecord = Record<RefLikeString, JsonValue>;
 
 const reservedSerializerNames = new Set(["string"]);
 
+type Path = (number | string)[];
+
+function isSubPath(path: Path, subPath: Path): boolean {
+	if (path.length < subPath.length) {
+		return false;
+	}
+	for (let i = 0; i < subPath.length; i++) {
+		if (path[i] !== subPath[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
-	const values = new Map<unknown, [Index, Location]>();
+	const values = new Map<unknown, [Index, Location, Path]>();
 	const refs: RefRecord = {};
-	const dupes = new Map<RefLikeString, Location>();
+	const replaceMap = new Map<RefLikeString, Location>();
 
 	const internal: SerializeInternalOptions = options.internal ?? {
 		indexCounter: counter(),
@@ -61,6 +75,12 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		knownDuplicates: new Set(),
 		refCounter: counter(),
 	};
+	function shouldDedupe(value: unknown): boolean {
+		if (typeof options.dedupe === "function") {
+			return options.dedupe(value);
+		}
+		return options.dedupe ?? false;
+	}
 	const serializers = options.serializers ?? {};
 
 	for (const name of reservedSerializerNames) {
@@ -69,19 +89,22 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		}
 	}
 
-	function toJson(thing: unknown, location: Location): JsonValue {
+	function toJson(thing: unknown, location: Location, path: Path): JsonValue {
 		const existing = values.get(thing);
 
 		if (existing) {
-			const [index, location] = existing;
-			const refId: RefLikeString = getRefIdForIndex(index);
+			const [index, location, existingPath] = existing;
 
-			dupes.set(refId, location);
+			if (shouldDedupe(thing) || isSubPath(path, existingPath)) {
+				const refId: RefLikeString = getRefIdForIndex(index);
 
-			return refId;
+				replaceMap.set(refId, location);
+
+				return refId;
+			}
 		}
 		const index = internal.indexCounter();
-		values.set(thing, [index, location]);
+		values.set(thing, [index, location, path]);
 
 		for (const name in serializers) {
 			const fn = serializers[name];
@@ -97,7 +120,11 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 				value: 0,
 			};
 
-			customValue.value = toJson(value, [customValue, "value"]);
+			customValue.value = toJson(
+				value,
+				[customValue, "value"],
+				[...path, "value"],
+			);
 
 			return customValue;
 		}
@@ -118,7 +145,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		if (isPlainObject(thing)) {
 			const result: Record<string, JsonValue> = {};
 			for (const key in thing) {
-				result[key] = toJson(thing[key], [result, key]);
+				result[key] = toJson(thing[key], [result, key], [...path, key]);
 			}
 			return result;
 		}
@@ -126,7 +153,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		if (Array.isArray(thing)) {
 			const result: JsonValue[] = [];
 			for (const [index, it] of thing.entries()) {
-				result.push(toJson(it, [result, index]));
+				result.push(toJson(it, [result, index], [...path, index]));
 			}
 			return result;
 		}
@@ -152,9 +179,9 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		return refId;
 	}
 
-	const json = toJson(value, null);
+	const json = toJson(value, null, []);
 
-	for (const [refId, location] of dupes) {
+	for (const [refId, location] of replaceMap) {
 		if (!location) {
 			continue;
 		}
@@ -190,6 +217,20 @@ export interface SerializeInternalOptions {
 
 export interface SerializeOptions {
 	coerceError?: (cause: unknown) => unknown;
+
+	/**
+	 * Dedupe values.
+	 *
+	 * If a value is encountered multiple times, it will be replaced with a reference to the first occurrence.
+	 *
+	 * If a function is provided, it will be called with the value and should return a boolean indicating whether the value should be deduped.
+	 * @default false
+	 */
+	dedupe?: ((value: unknown) => boolean) | boolean;
+
+	/**
+	 * @private
+	 */
 	internal?: SerializeInternalOptions;
 	serializers?: SerializerRecord;
 }

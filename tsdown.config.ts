@@ -8,7 +8,12 @@ export default defineConfig({
 	// Generate sourcemaps
 	sourcemap: true,
 	// Entry points - all TypeScript files except tests
-	entry: ["src/**/*.ts", "!src/**/*.test.*", "!src/**/test.*"],
+	entry: [
+		"src/**/*.ts",
+		"!src/**/*.test.*",
+		"!src/**/test.*",
+		"!src/**/*.bench.*",
+	],
 	// Output format
 	format: ["esm", "cjs"],
 	// Output directory
