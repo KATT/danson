@@ -12,7 +12,7 @@
 
 ## About
 
-Example: https://stackblitz.com/github/KATT/danson/tree/main/example
+[Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
 ### Example
 
