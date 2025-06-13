@@ -356,7 +356,7 @@ test("stringify custom type", () => {
 			},
 		},
 	});
-	console.log(str);
+	// console.log(str);
 
 	const result = parseSync(str, {
 		deserializers: {
