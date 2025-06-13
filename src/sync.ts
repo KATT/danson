@@ -27,9 +27,9 @@ function isRefLikeString(thing: unknown): thing is RefLikeString {
 
 type Index = ReturnType<CounterFn<"index">>;
 
-export type ReducerName = Branded<string, "reducer">;
-export type ReducerFn = (value: unknown) => unknown;
-export type ReducerRecord = Record<string, ReducerFn>;
+export type SerializerName = Branded<string, "serializer">;
+export type SerializerFn = (value: unknown) => unknown;
+export type SerializerRecord = Record<string, SerializerFn>;
 
 export type RefIndex = ReturnType<CounterFn<"ref">>;
 
@@ -39,14 +39,14 @@ export type CustomValue = Satisfies<
 	JsonObject,
 	{
 		_: "$"; // as it's a reserved string
-		type: ReducerName;
+		type: SerializerName;
 		value: JsonValue;
 	}
 >;
 
 type RefRecord = Record<RefLikeString, JsonValue>;
 
-const reservedReducerNames = new Set(["string"]);
+const reservedSerializerNames = new Set(["string"]);
 
 export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
@@ -61,11 +61,11 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		knownDuplicates: new Set(),
 		refCounter: counter(),
 	};
-	const reducers = options.reducers ?? {};
+	const serializers = options.serializers ?? {};
 
-	for (const name of reservedReducerNames) {
-		if (name in reducers) {
-			throw new Error(`${name} is a reserved reducer name`);
+	for (const name of reservedSerializerNames) {
+		if (name in serializers) {
+			throw new Error(`${name} is a reserved serializer name`);
 		}
 	}
 
@@ -83,8 +83,8 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		const index = internal.indexCounter();
 		values.set(thing, [index, location]);
 
-		for (const name in reducers) {
-			const fn = reducers[name];
+		for (const name in serializers) {
+			const fn = serializers[name];
 			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			const value = fn!(thing);
 			if (value === false) {
@@ -93,7 +93,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 
 			const customValue: CustomValue = {
 				_: "$",
-				type: name as ReducerName,
+				type: name as SerializerName,
 				value: 0,
 			};
 
@@ -106,7 +106,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			if (isRefLikeString(thing)) {
 				const value: CustomValue = {
 					_: "$",
-					type: "string" as ReducerName,
+					type: "string" as SerializerName,
 					value: thing,
 				};
 				return value;
@@ -192,7 +192,7 @@ export interface SerializeInternalOptions {
 export interface SerializeOptions {
 	coerceError?: (cause: unknown) => unknown;
 	internal?: SerializeInternalOptions;
-	reducers?: ReducerRecord;
+	serializers?: SerializerRecord;
 }
 
 export interface StringifyOptions extends SerializeOptions {
@@ -205,21 +205,21 @@ export function stringifySync(value: unknown, options: StringifyOptions) {
 	return JSON.stringify(result, null, options.space);
 }
 
-export type ReviverFn<T> = (value: unknown) => T;
-export interface RecursiveReviverFn<T> {
+export type DeserializerFn<T> = (value: unknown) => T;
+export interface RecursiveDeserializerFn<T> {
 	create: () => T;
 	set: (obj: T, value: unknown) => void;
 }
 
-export type Reviver<T> = RecursiveReviverFn<T> | ReviverFn<T>;
+export type Deserializer<T> = DeserializerFn<T> | RecursiveDeserializerFn<T>;
 
-export type ReviverRecord = Record<string, Reviver<unknown>>;
+export type DeserializerRecord = Record<string, Deserializer<unknown>>;
 export interface DeserializeOptions extends SerializeReturn {
 	cache?: Map<RefLikeString, unknown>;
-	revivers?: ReviverRecord;
+	deserializers?: DeserializerRecord;
 }
 export function deserializeSync<T>(options: DeserializeOptions): T {
-	const revivers = options.revivers ?? {};
+	const deserializers = options.deserializers ?? {};
 	const cache = options.cache ?? new Map<RefLikeString, unknown>();
 
 	function getRefResult(refId: RefLikeString): unknown {
@@ -261,18 +261,20 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 				if (refValue.type === "string") {
 					return refValue.value;
 				}
-				const reviver = revivers[refValue.type];
-				if (!reviver) {
-					throw new Error(`No reviver found for reducer: ${refValue.type}`);
+				const deserializer = deserializers[refValue.type];
+				if (!deserializer) {
+					throw new Error(
+						`No deserializer found for serializer: ${refValue.type}`,
+					);
 				}
-				if (typeof reviver === "function") {
-					return reviver(deserializeValue(refValue.value));
+				if (typeof deserializer === "function") {
+					return deserializer(deserializeValue(refValue.value));
 				}
-				const result = reviver.create();
+				const result = deserializer.create();
 				if (refId) {
 					cache.set(refId, result);
 				}
-				reviver.set(result, deserializeValue(refValue.value));
+				deserializer.set(result, deserializeValue(refValue.value));
 				return result;
 			}
 
@@ -295,7 +297,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 }
 
 export interface ParseSyncOptions {
-	revivers?: ReviverRecord;
+	deserializers?: DeserializerRecord;
 }
 export function parseSync<T>(value: string, options?: ParseSyncOptions) {
 	const json = JSON.parse(value) as SerializeReturn;

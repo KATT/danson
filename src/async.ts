@@ -3,9 +3,9 @@ import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
 	DeserializeOptions,
 	deserializeSync,
-	ReducerRecord,
+	SerializerRecord,
 	RefLikeString,
-	ReviverRecord,
+	DeserializerRecord,
 	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeReturn,
@@ -61,8 +61,8 @@ export async function* serializeAsync(
 	options: SerializeAsyncOptions,
 ) {
 	/* eslint-disable perfectionist/sort-objects */
-	const reducers: ReducerRecord = {
-		...options.reducers,
+	const serializers: SerializerRecord = {
+		...options.serializers,
 		ReadableStream(v) {
 			if (!(v instanceof ReadableStream)) {
 				return false;
@@ -141,7 +141,7 @@ export async function* serializeAsync(
 		const result = serializeSync(value, {
 			...options,
 			internal,
-			reducers,
+			serializers,
 		});
 		return {
 			json: result.json,
@@ -208,7 +208,7 @@ export async function* stringifyAsync(
 
 export interface DeserializeAsyncOptions
 	extends Omit<DeserializeOptions, keyof SerializeReturn> {
-	revivers?: ReviverRecord;
+	deserializers?: DeserializerRecord;
 }
 
 export async function deserializeAsync<T>(
@@ -282,8 +282,8 @@ export async function deserializeAsync<T>(
 	}
 
 	/* eslint-disable perfectionist/sort-objects */
-	const revivers: ReviverRecord = {
-		...options?.revivers,
+	const deserializers: DeserializerRecord = {
+		...options?.deserializers,
 
 		ReadableStream(idx) {
 			const c = getController(idx as ChunkIndex);
@@ -366,7 +366,7 @@ export async function deserializeAsync<T>(
 			...options,
 			...value,
 			cache,
-			revivers,
+			deserializers,
 		});
 	}
 

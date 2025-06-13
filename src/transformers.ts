@@ -1,32 +1,31 @@
-import { ReducerFn, ReducerRecord, Reviver, ReviverRecord } from "./sync.js";
+import {
+	Deserializer,
+	DeserializerRecord,
+	SerializerFn,
+	SerializerRecord,
+} from "./sync.js";
 
 export const transformers = {
 	BigInt: {
-		reducer: (value) => {
+		deserializer: (value) => BigInt(value as string),
+		serializer: (value) => {
 			if (typeof value !== "bigint") {
 				return false;
 			}
 			return value.toString();
 		},
-		reviver: (value) => BigInt(value as string),
 	},
 	Date: {
-		reducer: (value) => {
+		deserializer: (value) => new Date(value as string),
+		serializer: (value) => {
 			if (!(value instanceof Date)) {
 				return false;
 			}
 			return value.toJSON();
 		},
-		reviver: (value) => new Date(value as string),
 	},
 	Map: {
-		reducer: (value) => {
-			if (!(value instanceof Map)) {
-				return false;
-			}
-			return Array.from(value.entries());
-		},
-		reviver: {
+		deserializer: {
 			create: () => new Map(),
 			set: (map, values) => {
 				for (const [key, value] of values as [unknown, unknown][]) {
@@ -34,29 +33,28 @@ export const transformers = {
 				}
 			},
 		},
+		serializer: (value) => {
+			if (!(value instanceof Map)) {
+				return false;
+			}
+			return Array.from(value.entries());
+		},
 	},
 	RegExp: {
-		reducer: (value) => {
+		deserializer: (value) => {
+			const [source, flags] = value as [string, string];
+			return new RegExp(source, flags);
+		},
+		serializer: (value) => {
 			if (!(value instanceof RegExp)) {
 				return false;
 			}
 			const { flags, source } = value;
 			return [source, flags];
 		},
-		reviver: (value) => {
-			const [source, flags] = value as [string, string];
-			return new RegExp(source, flags);
-		},
 	},
 	Set: {
-		reducer: (value) => {
-			if (!(value instanceof Set)) {
-				return false;
-			}
-
-			return Array.from(value.values());
-		},
-		reviver: {
+		deserializer: {
 			create: () => new Set(),
 			set: (set, values) => {
 				for (const value of values as unknown[]) {
@@ -64,32 +62,46 @@ export const transformers = {
 				}
 			},
 		},
+		serializer: (value) => {
+			if (!(value instanceof Set)) {
+				return false;
+			}
+
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			return Array.from(value.values());
+		},
 	},
 	undef: {
-		reducer: (value) => {
+		deserializer: () => undefined,
+		serializer: (value) => {
 			if (value === undefined) {
 				return 0;
 			}
 			return false;
 		},
-		reviver: () => undefined,
 	},
 } satisfies Record<
 	string,
 	{
-		reducer: ReducerFn;
-		reviver: Reviver<unknown>;
+		deserializer: Deserializer<unknown>;
+		serializer: SerializerFn;
 	}
 >;
 
-export const reducers: ReducerRecord = {
+export const serializers: SerializerRecord = {
 	...Object.fromEntries(
-		Object.entries(transformers).map(([key, { reducer }]) => [key, reducer]),
+		Object.entries(transformers).map(([key, { serializer }]) => [
+			key,
+			serializer,
+		]),
 	),
 };
 
-export const revivers: ReviverRecord = {
+export const deserializers: DeserializerRecord = {
 	...Object.fromEntries(
-		Object.entries(transformers).map(([key, { reviver }]) => [key, reviver]),
+		Object.entries(transformers).map(([key, { deserializer }]) => [
+			key,
+			deserializer,
+		]),
 	),
 };

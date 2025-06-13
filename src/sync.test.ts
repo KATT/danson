@@ -6,7 +6,7 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { reducers, revivers } from "./transformers.js";
+import { serializers, deserializers } from "./transformers.js";
 
 test("string", () => {
 	const source = "hello";
@@ -151,7 +151,7 @@ test("custom simple type", () => {
 	};
 
 	const meta = serializeSync(source, {
-		reducers,
+		serializers,
 	});
 
 	expect(meta.json).toMatchInlineSnapshot(`
@@ -168,7 +168,7 @@ test("custom simple type", () => {
 
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers,
+		deserializers,
 	});
 
 	expect(result).toEqual(source);
@@ -183,7 +183,7 @@ test("map", () => {
 	};
 
 	const meta = serializeSync(source, {
-		reducers,
+		serializers,
 	});
 
 	expect(meta.json).toMatchInlineSnapshot(`
@@ -213,7 +213,7 @@ test("map", () => {
 
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers,
+		deserializers,
 	});
 
 	expect(result).toEqual(source);
@@ -232,7 +232,7 @@ test("custom complex type with self reference", () => {
 	map.set("self2", map);
 
 	const meta = serializeSync(source, {
-		reducers,
+		serializers,
 	});
 
 	expect(meta).toMatchInlineSnapshot(`
@@ -269,7 +269,7 @@ test("custom complex type with self reference", () => {
 
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers,
+		deserializers,
 	});
 
 	expect(result).toEqual(source);
@@ -297,7 +297,7 @@ test("special handling - ref-like strings", () => {
 
 	const result = deserializeSync<typeof source>({
 		...meta,
-		revivers,
+		deserializers,
 	});
 
 	expect(result).toEqual(source);
@@ -341,7 +341,7 @@ test("stringify custom type", () => {
 	};
 
 	const str = stringifySync(source, {
-		reducers: {
+		serializers: {
 			BigInt: (value) => {
 				if (typeof value !== "bigint") {
 					return false;
@@ -364,7 +364,7 @@ test("stringify custom type", () => {
 	`);
 
 	const result = parseSync(str, {
-		revivers: {
+		deserializers: {
 			BigInt: (value) => BigInt(value as string),
 		},
 	});
@@ -375,7 +375,7 @@ test("serialize/deserialize undefined", () => {
 	const source = undefined;
 
 	const obj = serializeSync(source, {
-		reducers,
+		serializers,
 	});
 	expect(obj).toMatchInlineSnapshot(`
 		{
@@ -389,6 +389,6 @@ test("serialize/deserialize undefined", () => {
 	`);
 
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-	const result = deserializeSync<typeof source>({ ...obj, revivers });
+	const result = deserializeSync<typeof source>({ ...obj, deserializers });
 	expect(result).toEqual(source);
 });

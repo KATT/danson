@@ -6,14 +6,14 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { reducers, revivers } from "./transformers.js";
+import { serializers, deserializers } from "./transformers.js";
 
 test.only("circular object", () => {
 	const source: any = { a: 1 };
 	source.b = source;
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -22,8 +22,8 @@ test("map with circular key", () => {
 	const source = { map: new Map() };
 	source.map.set(source.map, 1);
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -32,8 +32,8 @@ test("map with circular value", () => {
 	const source = new Map();
 	source.set("self", source);
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -43,8 +43,8 @@ test("map with circular key and value", () => {
 	map.set(map, map);
 	const source = { map };
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -62,8 +62,8 @@ test("set with circular references", () => {
 	});
 	const source = { set };
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -74,8 +74,8 @@ test("map in a deep object", () => {
 		map: source.map,
 	});
 
-	const str = stringifySync(source, { reducers });
-	const result = parseSync<typeof source>(str, { revivers });
+	const str = stringifySync(source, { serializers });
+	const result = parseSync<typeof source>(str, { deserializers });
 
 	expect(result).toEqual(source);
 });
@@ -101,7 +101,7 @@ test("custom type with recursive references", async () => {
 	type Source = ReturnType<typeof source>;
 
 	const serialized = serializeSync(source(), {
-		reducers: {
+		serializers: {
 			Node: (value) =>
 				value instanceof Node && {
 					edges: value.edges,
@@ -112,7 +112,7 @@ test("custom type with recursive references", async () => {
 
 	const result = deserializeSync<Source>({
 		...serialized,
-		revivers: {
+		deserializers: {
 			Node: {
 				create: () => new Node("", []),
 				set: (node, value) => {

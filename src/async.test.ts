@@ -12,7 +12,7 @@ import {
 	sleep,
 	waitError,
 } from "./test.utils.js";
-import { reducers, revivers } from "./transformers.js";
+import { serializers, deserializers } from "./transformers.js";
 
 test("serialize promise", async () => {
 	const promise = (async () => {
@@ -25,7 +25,7 @@ test("serialize promise", async () => {
 	});
 
 	const iterable = serializeAsync(source(), {
-		reducers,
+		serializers,
 	});
 
 	const aggregate = await aggregateAsyncIterable(iterable);
@@ -70,7 +70,7 @@ test("serialize async iterable", async () => {
 	});
 
 	const iterable = serializeAsync(source(), {
-		reducers,
+		serializers,
 	});
 
 	const aggregate = await aggregateAsyncIterable(iterable);
@@ -187,7 +187,7 @@ test("stringify promise returning Date", async () => {
 		})(),
 	});
 	const iterable = stringifyAsync(source(), {
-		reducers,
+		serializers,
 		space: "\t",
 	});
 
@@ -275,11 +275,11 @@ test("serialize and parse", async () => {
 	});
 	type Source = ReturnType<typeof source>;
 	const serialized = serializeAsync(source(), {
-		reducers,
+		serializers,
 	});
 
 	const parsed = await deserializeAsync<Source>(serialized, {
-		revivers,
+		deserializers,
 	});
 	const aggregate = await aggregateAsyncIterable(parsed.asyncIterable);
 
@@ -306,12 +306,12 @@ test("stringify and parse", async () => {
 	});
 	type Source = ReturnType<typeof source>;
 	const iterable = stringifyAsync(source(), {
-		reducers,
+		serializers,
 		space: "\t",
 	});
 
 	const parsed = await parseAsync<Source>(iterable, {
-		revivers,
+		deserializers,
 	});
 	const aggregate = await aggregateAsyncIterable(parsed.asyncIterable);
 
@@ -351,7 +351,7 @@ test("stringify and parse async values with errors - simple", async () => {
 		coerceError: (error) => {
 			return new UnregisteredError(error);
 		},
-		reducers: {
+		serializers: {
 			MyCustomError: (value) => {
 				if (value instanceof MyCustomError) {
 					return value.message;
@@ -368,7 +368,7 @@ test("stringify and parse async values with errors - simple", async () => {
 	});
 
 	const result = await parseAsync<Source>(iterable, {
-		revivers: {
+		deserializers: {
 			MyCustomError: (value) => {
 				return new MyCustomError(value as string);
 			},
@@ -414,7 +414,7 @@ test("stringify and parse async values with errors", async () => {
 		})(),
 		unknownErrorDoesNotBlockStream: (async () => {
 			await new Promise((resolve) => setTimeout(resolve, 0));
-			throw new Error("unknown error"); // <-- this is not handled by the reviver, but coerceError is provided
+			throw new Error("unknown error"); // <-- this is not handled by the deserializer, but coerceError is provided
 		})(),
 	});
 	type Source = ReturnType<typeof source>;
@@ -423,7 +423,7 @@ test("stringify and parse async values with errors", async () => {
 		coerceError: (error) => {
 			return new UnregisteredError(error);
 		},
-		reducers: {
+		serializers: {
 			MyCustomError: (value) => {
 				if (value instanceof MyCustomError) {
 					return value.message;
@@ -440,7 +440,7 @@ test("stringify and parse async values with errors", async () => {
 	});
 
 	const result = await parseAsync<Source>(iterable, {
-		revivers: {
+		deserializers: {
 			MyCustomError: (value) => {
 				return new MyCustomError(value as string);
 			},
@@ -485,10 +485,10 @@ test("stringify and parse ReadableStream", async () => {
 	type Source = ReturnType<typeof source>;
 
 	const iterable = stringifyAsync(source(), {
-		reducers,
+		serializers,
 	});
 	const result = await parseAsync<Source>(iterable, {
-		revivers,
+		deserializers,
 	});
 
 	expect(result.stream).toBeInstanceOf(ReadableStream);
@@ -687,16 +687,16 @@ test("custom type", async () => {
 	type Source = ReturnType<typeof source>;
 
 	const iterable = stringifyAsync(source(), {
-		reducers: {
-			...reducers,
+		serializers: {
+			...serializers,
 			Vector: (value) => value instanceof Vector && [value.x, value.y],
 		},
 		space: "\t",
 	});
 	{
 		const result = await parseAsync<Source>(iterable, {
-			revivers: {
-				...revivers,
+			deserializers: {
+				...deserializers,
 				Vector: (value) => {
 					const [x, y] = value as [number, number];
 					return new Vector(x, y);

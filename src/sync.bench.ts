@@ -2,7 +2,7 @@ import * as superjson from "superjson";
 import { bench, describe } from "vitest";
 
 import { parseSync, stringifySync } from "./sync.js";
-import { reducers, revivers } from "./transformers.js";
+import { serializers, deserializers } from "./transformers.js";
 
 const obj = {
 	array: [{ foo: 1 }, { bar: 2 }, { baz: 3 }],
@@ -18,7 +18,7 @@ const obj = {
 describe("stringify", () => {
 	bench("danson", () => {
 		stringifySync(obj, {
-			reducers,
+			serializers,
 		});
 	});
 
@@ -31,10 +31,10 @@ describe("stringify + parse", () => {
 	bench("danson", () => {
 		parseSync(
 			stringifySync(obj, {
-				reducers,
+				serializers,
 			}),
 			{
-				revivers,
+				deserializers,
 			},
 		);
 	});
