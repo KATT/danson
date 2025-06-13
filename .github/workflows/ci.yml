@@ -10,9 +10,11 @@ jobs:
   lint_eslint:
     name: ESLint
     runs-on: ubuntu-latest
+    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare
+      - run: pnpm build
       - run: pnpm lint:eslint
   lint_knip:
     name: Lint Knip
