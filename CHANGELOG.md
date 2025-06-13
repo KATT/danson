@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.5.0](https://github.com/KATT/danson/compare/0.4.1...0.5.0) (2025-06-13)
+
+### Features
+
+- dedupe flag ([c2d82ab](https://github.com/KATT/danson/commit/c2d82abdce251d18b807062807fcc50f2c2578c6))
+
 ## [0.4.1](https://github.com/KATT/danson/compare/0.4.0...0.4.1) (2025-06-13)
 
 ### Bug Fixes
