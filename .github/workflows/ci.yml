@@ -9,10 +9,12 @@ jobs:
       - run: node lib/index.js
   lint_eslint:
     name: ESLint
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare
+      - run: pnpm build
       - run: pnpm lint:eslint
   lint_knip:
     name: Lint Knip

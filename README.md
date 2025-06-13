@@ -1,4 +1,4 @@
-<h1 align="center">DanSON</h1>
+<h1 align="center">danSON</h1>
 
 <p align="center">Progressive JSON</p>
 
@@ -12,7 +12,70 @@
 
 ## About
 
-Example: https://stackblitz.com/github/KATT/danson/tree/main/example
+danSON is a progressive JSON serializer and deserializer that can serialize and deserialize arbitrary objects into JSON.
+
+## Features
+
+- Streaming of `Promise`s, `AsyncIterable`s, and `ReadableStream`s
+- Custom serializers / deserializers
+- De-duplication of objects (optional)
+- Circular references
+
+## Examples
+
+[Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
+
+### Streaming
+
+#### Input
+
+```ts
+const source = {
+	foo: "bar",
+	promise: (async () => {
+		await sleep(1000);
+		return "hello promise";
+	})(),
+};
+
+const stringified = stringifySync(source, {
+	space: 2,
+});
+for await (const chunk of stringified) {
+	console.log(chunk);
+}
+```
+
+#### Output
+
+<!-- prettier-ignore-start -->
+<!-- eslint-disable -->
+
+```jsonc
+{
+	"json": {
+		"foo": "bar",
+		"promise": { 
+			"_": "$", // informs the deserializer that this is a special type
+			"type": "Promise", // it is a Promise
+			"value": 1 // index of the Promise that will come later
+		}
+	}
+}
+```
+
+```jsonc
+[
+	1, // index of the Promise
+	0, // Promise succeeded (0 = success, 1 = failure)
+	{
+		"json": "hello promise"
+	}
+]
+```
+
+<!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ## Installation
 
