@@ -1,4 +1,4 @@
-<h1 align="center">DanSON</h1>
+<h1 align="center">danSON</h1>
 
 <p align="center">Progressive JSON</p>
 
@@ -12,7 +12,7 @@
 
 ## About
 
-DanSon is a progressive JSON serializer and deserializer that can serialize and deserialize arbitrary objects into JSON.
+danSON is a progressive JSON serializer and deserializer that can serialize and deserialize arbitrary objects into JSON.
 
 ## Features
 
