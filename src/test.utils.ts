@@ -70,6 +70,9 @@ export function serverResource(
 	};
 }
 
+/**
+ * @public
+ */
 export async function* withDebug<T>(iterable: AsyncIterable<T>) {
 	for await (const item of iterable) {
 		console.log("item", item);
