@@ -1,7 +1,8 @@
 {
 	"$schema": "https://unpkg.com/knip@5.46.0/schema.json",
 	"entry": ["src/**/*.test.*", "src/index.ts"],
-	"ignoreDependencies": ["console-fail-test", "danson"],
+	"ignoreDependencies": ["console-fail-test", "danson", "superjson"],
 	"ignoreExportsUsedInFile": { "interface": true, "type": true },
-	"project": ["src/**/*.ts"]
+	"project": ["src/**/*.ts"],
+	"ignore": ["src/*.bench.ts"]
 }
