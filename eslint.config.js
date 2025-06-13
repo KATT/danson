@@ -65,6 +65,7 @@ export default tseslint.config(
 			"@typescript-eslint/no-non-null-assertion": "off",
 			"@typescript-eslint/no-unused-vars": "off",
 			"n/no-missing-import": "off",
+			"n/no-unpublished-import": "off",
 		},
 	},
 	{
