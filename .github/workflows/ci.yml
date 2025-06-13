@@ -9,8 +9,8 @@ jobs:
       - run: node lib/index.js
   lint_eslint:
     name: ESLint
-    runs-on: ubuntu-latest
     needs: build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare
