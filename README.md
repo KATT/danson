@@ -37,25 +37,26 @@ for await (const chunk of stringified) {
 
 #### Output
 
-```js
+```jsonlines
 {
-	json: {
-		foo: "bar",
-		promise: { // tells the deserializer that this is a promise
-			_: "$",
-			type: "Promise",
-			value: 1, // <-- index of the promise
+	"json": {
+		"foo": "bar",
+		// tell the deserializer that this is a promise:
+		"promise": {
+			"_": "$",
+			"type": "Promise",
+			"value": 1, // <-- index of the promise
 		},
 	},
 }
 ```
 
-```js
+```jsonc
 [
 	1, // <-- index of the promise
 	0, // <-- promise succeeded
 	{
-		json: "hello promise",
+		"json": "hello promise",
 	},
 ];
 ```
