@@ -31,7 +31,7 @@ const stringified = stringifySync(source, {
 	space: 2,
 });
 for await (const chunk of stringified) {
-	console.log(chunk);
+	console.log(JSON.parse(chunk));
 }
 ```
 
@@ -39,12 +39,12 @@ for await (const chunk of stringified) {
 
 ```js
 {
-	"json": {
-		"foo": "bar",
-		"promise": {
-			"_": "$",
-			"type": "Promise", // <-- holds the reference to the promise
-			"value": 1,
+	json: {
+		foo: "bar",
+		promise: {
+			_: "$",
+			type: "Promise", // <-- holds the reference to the promise
+			value: 1,
 		},
 	},
 }
