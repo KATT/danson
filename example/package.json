@@ -1,0 +1,17 @@
+{
+	"name": "@danson/example",
+	"version": "1.0.0",
+	"description": "",
+	"license": "ISC",
+	"author": "",
+	"type": "module",
+	"scripts": {
+		"dev": "tsx watch example.ts",
+		"start": "tsx example.ts"
+	},
+	"dependencies": {
+		"danson": "latest",
+		"tsx": "^4.20.3"
+	},
+	"packageManager": "pnpm@10.11.0"
+}
