@@ -2,7 +2,7 @@ import * as superjson from "superjson";
 import { bench, describe } from "vitest";
 
 import { parseSync, stringifySync } from "./sync.js";
-import { serializers, deserializers } from "./transformers.js";
+import { deserializers, serializers } from "./transformers.js";
 
 const obj = {
 	array: [{ foo: 1 }, { bar: 2 }, { baz: 3 }],

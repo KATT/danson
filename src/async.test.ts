@@ -12,7 +12,7 @@ import {
 	sleep,
 	waitError,
 } from "./test.utils.js";
-import { serializers, deserializers } from "./transformers.js";
+import { deserializers, serializers } from "./transformers.js";
 
 test("serialize promise", async () => {
 	const promise = (async () => {
