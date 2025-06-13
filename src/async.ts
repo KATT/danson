@@ -2,13 +2,13 @@ import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
 	DeserializeOptions,
-	deserializeSync,
-	SerializerRecord,
-	RefLikeString,
 	DeserializerRecord,
+	deserializeSync,
+	RefLikeString,
 	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeReturn,
+	SerializerRecord,
 	serializeSync,
 	StringifyOptions,
 } from "./sync.js";
