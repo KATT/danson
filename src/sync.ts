@@ -198,7 +198,7 @@ export interface StringifyOptions extends SerializeOptions {
 	space?: number | string;
 }
 
-export function stringifySync(value: unknown, options: StringifyOptions) {
+export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 	const result = serializeSync(value, options);
 
 	return JSON.stringify(result, null, options.space);
