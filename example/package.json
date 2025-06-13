@@ -6,8 +6,7 @@
 	"author": "",
 	"type": "module",
 	"scripts": {
-		"dev": "tsx watch example.ts",
-		"start": "tsx example.ts"
+		"dev": "tsx watch example.ts"
 	},
 	"dependencies": {
 		"danson": "latest",
