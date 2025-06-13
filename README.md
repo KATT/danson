@@ -37,26 +37,26 @@ for await (const chunk of stringified) {
 
 #### Output
 
-```json
+```jsonc
 {
 	"json": {
 		"foo": "bar",
 		"promise": {
 			"_": "$",
 			"type": "Promise", // <-- holds the reference to the promise
-			"value": 1
-		}
-	}
+			"value": 1,
+		},
+	},
 }
 ```
 
-```json
+```jsonc
 [
 	1, // <-- index of the promise
 	0, // <-- promise succeeded
 	{
-		"json": "hello promise"
-	}
+		"json": "hello promise",
+	},
 ]
 ```
 
