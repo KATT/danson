@@ -20,7 +20,7 @@
 ## Installation
 
 ```shell
-npm install devalue danson
+npm install danson
 ```
 
 ## Usage
