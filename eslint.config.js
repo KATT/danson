@@ -68,6 +68,13 @@ export default tseslint.config(
 		},
 	},
 	{
+		extends: [tseslint.configs.disableTypeChecked],
+		files: ["**/*.md/*.jsonc"],
+		rules: {
+			"jsonc/no-comments": "off",
+		},
+	},
+	{
 		extends: [vitest.configs.recommended],
 		files: ["**/*.test.*", "**/*.bench.*"],
 		rules: {

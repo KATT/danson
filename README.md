@@ -31,13 +31,16 @@ const stringified = stringifySync(source, {
 	space: 2,
 });
 for await (const chunk of stringified) {
-	console.log(JSON.parse(chunk));
+	console.log(chunk);
 }
 ```
 
 #### Output
 
-```jsonlines
+<!-- prettier-ignore-start -->
+<!-- eslint-disable -->
+
+```jsonc
 {
 	"json": {
 		"foo": "bar",
@@ -45,9 +48,9 @@ for await (const chunk of stringified) {
 		"promise": {
 			"_": "$",
 			"type": "Promise",
-			"value": 1, // <-- index of the promise
-		},
-	},
+			"value": 1 // <-- index of the promise
+		}
+	}
 }
 ```
 
@@ -56,10 +59,13 @@ for await (const chunk of stringified) {
 	1, // <-- index of the promise
 	0, // <-- promise succeeded
 	{
-		"json": "hello promise",
-	},
-];
+		"json": "hello promise"
+	}
+]
 ```
+
+<!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ## Installation
 
