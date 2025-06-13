@@ -8,7 +8,7 @@ export default defineConfig({
 			include: ["src"],
 			reporter: ["html", "lcov"],
 		},
-		exclude: ["lib", "node_modules", "benchmark"],
+		include: ["./src/**/*.test.*"],
 		setupFiles: process.env.CI ? ["console-fail-test/setup"] : [],
 	},
 });
