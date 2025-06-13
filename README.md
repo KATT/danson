@@ -42,11 +42,13 @@ const stringified = stringifySync(source, {
 	space: 2,
 });
 /*
-json: {
-	instant: {
-	_: '$',
-	type: 'Temporal.Instant',
-	value: '2025-06-13T15:24:51.30029128Z'
+{
+	"json": {
+		"instant": {
+			"_": "$",
+			"type": "Temporal.Instant",
+			"value": "2025-06-13T15:24:51.30029128Z"
+		}
 	}
 }
 */
@@ -58,9 +60,9 @@ const result = parseSync<typeof source>(stringified, {
 });
 ```
 
-### Streaming
+### Streaming `Promise`s
 
-#### Input
+#### Promise example input
 
 ```ts
 const source = {
@@ -79,7 +81,7 @@ for await (const chunk of stringified) {
 }
 ```
 
-#### Output
+#### Promise example output
 
 <!-- prettier-ignore-start -->
 <!-- eslint-disable -->
@@ -88,12 +90,12 @@ for await (const chunk of stringified) {
 {
 	"json": {
 		"foo": "bar",
-		"promise": { 
+		"promise": {
 			"_": "$", // informs the deserializer that this is a special type
 			"type": "Promise", // it is a Promise
-			"value": 1 // index of the Promise that will come later
-		}
-	}
+			"value": 1, // index of the Promise that will come later
+		},
+	},
 }
 ```
 
@@ -107,8 +109,65 @@ for await (const chunk of stringified) {
 ]
 ```
 
-<!-- prettier-ignore-end -->
+### Streaming `AsyncIterable`s
+
+#### AsyncIterable example input
+
+```ts
+const source = {
+	asyncIterable: (async function* () {
+		yield "hello";
+		yield "world";
+
+		return "done";
+	})(),
+};
+
+const stringified = stringifySync(source, {
+	space: 2,
+});
+for await (const chunk of stringified) {
+	console.log(chunk);
+}
+```
+
+#### AsyncIterable example output
+
+```jsonc
+{
+	"json": {
+		"foo": "bar",
+		"asyncIterable": {
+			"_": "$",
+			"type": "AsyncIterable",
+			"value": 0
+		}
+	}
+}
+```
+
+```jsonc
+[
+	0,
+	0,
+	{
+		"json": "world"
+	}
+]
+```
+
+```jsonc
+[
+	0, // index of the AsyncIterable
+	2,
+	{
+		"json": "done"
+	}
+]
+```
+
 <!-- eslint-enable -->
+<!-- prettier-ignore-end -->
 
 ## Installation
 
