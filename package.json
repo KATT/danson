@@ -91,7 +91,7 @@
 		"node": ">=18.3.0"
 	},
 	"publishConfig": {
-		"provenance": false
+		"provenance": true
 	},
 	"pnpm": {
 		"overrides": {
