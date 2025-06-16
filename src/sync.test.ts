@@ -356,7 +356,6 @@ test("stringify custom type", () => {
 			},
 		},
 	});
-	// console.log(str);
 
 	const result = parseSync(str, {
 		deserializers: {
@@ -377,7 +376,6 @@ test("serialize/deserialize undefined", () => {
 		  "json": {
 		    "_": "$",
 		    "type": "undef",
-		    "value": 0,
 		  },
 		}
 	`);

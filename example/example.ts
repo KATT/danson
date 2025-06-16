@@ -1,4 +1,10 @@
-import { parseAsync, parseSync, stringifyAsync, stringifySync } from "danson";
+import {
+	parseAsync,
+	parseSync,
+	stringifyAsync,
+	stringifySync,
+	transformers,
+} from "danson";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -51,7 +57,9 @@ async function main() {
 		const stringified = stringifySync(obj);
 		console.dir(JSON.parse(stringified), { depth: null });
 
-		const parsed = parseSync<typeof obj>(stringified);
+		const parsed = parseSync<typeof obj>(stringified, {
+			deserializers: transformers.deserializers,
+		});
 
 		console.log("Parsed:");
 		console.dir(parsed);

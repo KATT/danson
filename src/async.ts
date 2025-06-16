@@ -8,7 +8,7 @@ import {
 	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeReturn,
-	SerializerRecord,
+	SerializeRecord,
 	serializeSync,
 	StringifyOptions,
 } from "./sync.js";
@@ -61,7 +61,7 @@ export async function* serializeAsync(
 	options: SerializeAsyncOptions,
 ) {
 	/* eslint-disable perfectionist/sort-objects */
-	const serializers: SerializerRecord = {
+	const serializers: SerializeRecord = {
 		...options.serializers,
 		ReadableStream(v) {
 			if (!(v instanceof ReadableStream)) {

@@ -9,5 +9,7 @@ export {
 	parseSync,
 	serializeSync,
 	stringifySync,
+	type TransformerPair,
 } from "./sync.js";
-export * from "./transformers.js";
+
+export * as transformers from "./transformers.js";
