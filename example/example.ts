@@ -60,7 +60,9 @@ async function main() {
 		const obj = {
 			selfReferencingObject,
 		};
-		const stringified = stringifySync(obj);
+		const stringified = stringifySync(obj, {
+			serializers: std.serializers,
+		});
 		console.dir(JSON.parse(stringified), { depth: null });
 
 		const parsed = parseSync<typeof obj>(stringified, {
