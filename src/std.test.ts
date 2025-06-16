@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import { parseSync, stringifySync } from "./sync.js";
