@@ -9,7 +9,7 @@ import {
 	JsonValue,
 } from "./utils.js";
 
-export type RefLikeString = `$${number}`;
+export type RefLikeString<TNumber extends number = number> = `$${TNumber}`;
 
 function isRefLikeString(thing: unknown): thing is RefLikeString {
 	if (typeof thing !== "string" || thing.length < 2 || !thing.startsWith("$")) {
@@ -23,6 +23,10 @@ function isRefLikeString(thing: unknown): thing is RefLikeString {
 		}
 	}
 	return true;
+}
+export function numberToRef<T extends number>(index: T): RefLikeString<T> {
+	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+	return `$${index}`;
 }
 
 type Index = ReturnType<CounterFn<"index">>;
@@ -96,7 +100,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			const [index, location, existingPath] = existing;
 
 			if (shouldDedupe(thing) || isSubPath(path, existingPath)) {
-				const refId: RefLikeString = getRefIdForIndex(index);
+				const refId: RefLikeString = getOrCreateRef(index);
 
 				replaceMap.set(refId, location);
 
@@ -163,17 +167,16 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 	}
 
 	const indexToRefRecord: Record<Index, RefLikeString> = {};
-	function getRefIdForIndex(index: Index): RefLikeString {
+	function getOrCreateRef(index: Index): RefLikeString {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return "$0";
+			return numberToRef(0);
 		}
 		if (indexToRefRecord[index]) {
 			return indexToRefRecord[index];
 		}
 
-		// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-		const refId: RefLikeString = `$${internal.refCounter()}`;
+		const refId: RefLikeString = numberToRef(internal.refCounter());
 		indexToRefRecord[index] = refId;
 
 		return refId;
@@ -335,7 +338,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		throw new Error("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(options.json, "$0") as T;
+	const result = deserializeValue(options.json, numberToRef(0)) as T;
 
 	return result;
 }

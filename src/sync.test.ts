@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 
 import {
 	deserializeSync,
+	numberToRef,
 	parseSync,
 	serializeSync,
 	stringifySync,
@@ -72,10 +73,10 @@ test("dedupe", () => {
 	});
 
 	expect(meta.json).toEqual({
-		1: "$1",
-		2: "$1",
-		3: "$2",
-		4: "$2",
+		1: numberToRef(1),
+		2: numberToRef(1),
+		3: numberToRef(2),
+		4: numberToRef(2),
 	});
 
 	expect(meta.refs).toBeTruthy();
@@ -103,7 +104,7 @@ test("self-referencing object at top", () => {
 
 	expect(meta.json).toEqual({
 		foo: "bar",
-		self: "$0",
+		self: numberToRef(0),
 	});
 	expect(meta.refs).toBeUndefined();
 
