@@ -1,7 +1,5 @@
 import {
-	Deserialize,
 	DeserializerRecord,
-	SerializeFn,
 	SerializeRecord,
 	TransformerPair,
 } from "./sync.js";

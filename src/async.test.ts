@@ -12,7 +12,7 @@ import {
 	sleep,
 	waitError,
 } from "./test.utils.js";
-import { deserializers, serializers } from "./transformers.js";
+import { deserializers, serializers } from "./std.js";
 
 test("serialize async iterable", async () => {
 	const source = () => ({

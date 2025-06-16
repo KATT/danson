@@ -4,6 +4,8 @@ export {
 	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
+export * as std from "./std.js";
+
 export {
 	deserializeSync,
 	parseSync,
@@ -11,5 +13,3 @@ export {
 	stringifySync,
 	type TransformerPair,
 } from "./sync.js";
-
-export * as transformers from "./transformers.js";

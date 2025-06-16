@@ -6,7 +6,7 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { deserializers, serializers } from "./transformers.js";
+import { deserializers, serializers } from "./std.js";
 
 test("circular object", () => {
 	const source: any = { a: 1 };
