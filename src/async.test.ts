@@ -6,13 +6,13 @@ import {
 	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
+import { deserializers, serializers } from "./std.js";
 import {
 	aggregateAsyncIterable,
 	serverResource,
 	sleep,
 	waitError,
 } from "./test.utils.js";
-import { deserializers, serializers } from "./transformers.js";
 
 test("serialize async iterable", async () => {
 	const source = () => ({
@@ -71,8 +71,7 @@ test("serialize async iterable", async () => {
 		    {
 		      "json": {
 		        "_": "$",
-		        "type": "undef",
-		        "value": 0,
+		        "type": "undefined",
 		      },
 		      "refs": undefined,
 		    },
@@ -83,8 +82,7 @@ test("serialize async iterable", async () => {
 		    {
 		      "json": {
 		        "_": "$",
-		        "type": "undef",
-		        "value": 0,
+		        "type": "undefined",
 		      },
 		      "refs": undefined,
 		    },

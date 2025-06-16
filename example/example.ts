@@ -1,4 +1,10 @@
-import { parseAsync, parseSync, stringifyAsync, stringifySync } from "danson";
+import {
+	parseAsync,
+	parseSync,
+	std,
+	stringifyAsync,
+	stringifySync,
+} from "danson";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -31,7 +37,9 @@ async function main() {
 	{
 		console.log("\n\nShowing what stringifyAsync returns...");
 		// Showing what stringifyAsync returns
-		const iterator = stringifyAsync(source());
+		const iterator = stringifyAsync(source(), {
+			serializers: std.serializers,
+		});
 
 		for await (const chunk of iterator) {
 			console.dir(JSON.parse(chunk), { depth: null });
@@ -51,7 +59,9 @@ async function main() {
 		const stringified = stringifySync(obj);
 		console.dir(JSON.parse(stringified), { depth: null });
 
-		const parsed = parseSync<typeof obj>(stringified);
+		const parsed = parseSync<typeof obj>(stringified, {
+			deserializers: std.deserializers,
+		});
 
 		console.log("Parsed:");
 		console.dir(parsed);

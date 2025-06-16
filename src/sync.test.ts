@@ -1,6 +1,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { expect, test } from "vitest";
 
+import { deserializers, serializers } from "./std.js";
 import {
 	deserializeSync,
 	numberToRef,
@@ -8,7 +9,6 @@ import {
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { deserializers, serializers } from "./transformers.js";
 
 test("string", () => {
 	const source = "hello";
@@ -356,7 +356,6 @@ test("stringify custom type", () => {
 			},
 		},
 	});
-	// console.log(str);
 
 	const result = parseSync(str, {
 		deserializers: {
@@ -376,8 +375,7 @@ test("serialize/deserialize undefined", () => {
 		{
 		  "json": {
 		    "_": "$",
-		    "type": "undef",
-		    "value": 0,
+		    "type": "undefined",
 		  },
 		}
 	`);

@@ -31,9 +31,17 @@ export function numberToRef<T extends number>(index: T): RefLikeString<T> {
 
 type Index = ReturnType<CounterFn<"index">>;
 
-export type SerializerName = Branded<string, "serializer">;
-export type SerializerFn = (value: unknown) => unknown;
-export type SerializerRecord = Record<string, SerializerFn>;
+export type SerializeRecordKey = Branded<string, "serializer">;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type SerializeFn<_TOriginal, TSerialized> = (
+	value: unknown,
+) => false | TSerialized;
+
+export type SerializeRecord = Record<
+	string,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	SerializeFn<any, any>
+>;
 
 export type RefIndex = ReturnType<CounterFn<"ref">>;
 
@@ -43,10 +51,13 @@ export type CustomValue = Satisfies<
 	JsonObject,
 	{
 		_: "$"; // as it's a reserved string
-		type: SerializerName;
-		value: JsonValue;
+		type: SerializeRecordKey;
+		value?: JsonValue;
 	}
 >;
+function isCustomValue(value: Record<string, unknown>): value is CustomValue {
+	return value._ === "$" && typeof value.type === "string";
+}
 
 type RefRecord = Record<RefLikeString, JsonValue>;
 
@@ -112,7 +123,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 
 		for (const name in serializers) {
 			const fn = serializers[name];
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unsafe-assignment
 			const value = fn!(thing);
 			if (value === false) {
 				continue;
@@ -120,15 +131,16 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 
 			const customValue: CustomValue = {
 				_: "$",
-				type: name as SerializerName,
-				value: 0,
+				type: name as SerializeRecordKey,
 			};
 
-			customValue.value = toJson(
-				value,
-				[customValue, "value"],
-				[...path, "value"],
-			);
+			if (value !== undefined) {
+				customValue.value = toJson(
+					value,
+					[customValue, "value"],
+					[...path, "value"],
+				);
+			}
 
 			return customValue;
 		}
@@ -137,7 +149,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 			if (isRefLikeString(thing)) {
 				const value: CustomValue = {
 					_: "$",
-					type: "string" as SerializerName,
+					type: "string" as SerializeRecordKey,
 					value: thing,
 				};
 				return value;
@@ -239,7 +251,7 @@ export interface SerializeOptions {
 	 * @private
 	 */
 	internal?: SerializeInternalOptions;
-	serializers?: SerializerRecord;
+	serializers?: SerializeRecord;
 }
 
 export interface StringifyOptions extends SerializeOptions {
@@ -252,15 +264,23 @@ export function stringifySync(value: unknown, options: StringifyOptions = {}) {
 	return JSON.stringify(result, null, options.space);
 }
 
-export type DeserializerFn<T> = (value: unknown) => T;
-export interface RecursiveDeserializerFn<T> {
-	create: () => T;
-	set: (obj: T, value: unknown) => void;
+export type DeserializerFn<TOriginal, TSerialized> = (
+	value: TSerialized,
+) => TOriginal;
+export interface DeserializeRecursive<TOriginal, TSerialized> {
+	create: () => TOriginal;
+	set: (obj: TOriginal, value: TSerialized) => void;
 }
 
-export type Deserializer<T> = DeserializerFn<T> | RecursiveDeserializerFn<T>;
+export type Deserialize<TOriginal, TSerialized> =
+	| DeserializeRecursive<TOriginal, TSerialized>
+	| DeserializerFn<TOriginal, TSerialized>;
 
-export type DeserializerRecord = Record<string, Deserializer<unknown>>;
+export type DeserializerRecord = Record<
+	string,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	Deserialize<any, any>
+>;
 export interface DeserializeOptions extends SerializeReturn {
 	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
@@ -303,25 +323,30 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		}
 
 		if (isPlainObject(value)) {
-			if (value._ === "$") {
-				const refValue = value as CustomValue;
-				if (refValue.type === "string") {
-					return refValue.value;
+			if (isCustomValue(value)) {
+				const refType = value.type;
+				const refValue = value.value;
+				if (refType === "string") {
+					return refValue;
 				}
-				const deserializer = deserializers[refValue.type];
+				const deserializer = deserializers[refType];
 				if (!deserializer) {
-					throw new Error(
-						`No deserializer found for serializer: ${refValue.type}`,
-					);
+					throw new Error(`No deserializer found for serializer: ${refType}`);
 				}
 				if (typeof deserializer === "function") {
-					return deserializer(deserializeValue(refValue.value));
+					return deserializer(
+						refValue === undefined ? undefined : deserializeValue(refValue),
+					);
 				}
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 				const result = deserializer.create();
 				if (refId) {
 					cache.set(refId, result);
 				}
-				deserializer.set(result, deserializeValue(refValue.value));
+				deserializer.set(
+					result,
+					refValue === undefined ? undefined : deserializeValue(refValue),
+				);
 				return result;
 			}
 
@@ -352,4 +377,9 @@ export function parseSync<T>(value: string, options?: ParseSyncOptions) {
 		...options,
 		...json,
 	});
+}
+
+export interface TransformerPair<TOriginal, TSerialized> {
+	deserialize: Deserialize<TOriginal, TSerialized>;
+	serialize: SerializeFn<TOriginal, TSerialized>;
 }
