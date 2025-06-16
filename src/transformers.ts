@@ -8,23 +8,15 @@ import {
 
 type TransformBigInt = TransformerPair<bigint, string>;
 
-const serializeBigInt: TransformBigInt["serialize"] = (value) => {
-	if (typeof value !== "bigint") {
-		return false;
-	}
-	return value.toString();
-};
+const serializeBigInt: TransformBigInt["serialize"] = (value) =>
+	typeof value === "bigint" ? value.toString() : false;
 const deserializeBigInt: TransformBigInt["deserialize"] = (value) =>
 	BigInt(value);
 
 type TransformDate = TransformerPair<Date, string>;
 
-const serializeDate: TransformDate["serialize"] = (value) => {
-	if (!(value instanceof Date)) {
-		return false;
-	}
-	return value.toJSON();
-};
+const serializeDate: TransformDate["serialize"] = (value) =>
+	value instanceof Date ? value.toJSON() : false;
 const deserializeDate: TransformDate["deserialize"] = (value) =>
 	new Date(value);
 
@@ -33,12 +25,8 @@ type TransformMap = TransformerPair<
 	[unknown, unknown][]
 >;
 
-const serializeMap: TransformMap["serialize"] = (value) => {
-	if (!(value instanceof Map)) {
-		return false;
-	}
-	return Array.from(value.entries());
-};
+const serializeMap: TransformMap["serialize"] = (value) =>
+	value instanceof Map ? Array.from(value.entries()) : false;
 const deserializeMap: TransformMap["deserialize"] = {
 	create: () => new Map(),
 	set: (map, values) => {
@@ -50,12 +38,8 @@ const deserializeMap: TransformMap["deserialize"] = {
 
 type TransformRegExp = TransformerPair<RegExp, [string, string]>;
 
-const serializeRegExp: TransformRegExp["serialize"] = (value) => {
-	if (!(value instanceof RegExp)) {
-		return false;
-	}
-	return [value.source, value.flags];
-};
+const serializeRegExp: TransformRegExp["serialize"] = (value) =>
+	value instanceof RegExp ? [value.source, value.flags] : false;
 
 const deserializeRegExp: TransformRegExp["deserialize"] = (value) => {
 	const [source, flags] = value;
@@ -64,13 +48,8 @@ const deserializeRegExp: TransformRegExp["deserialize"] = (value) => {
 
 type TransformSet = TransformerPair<Set<unknown>, unknown[]>;
 
-const serializeSet: TransformSet["serialize"] = (value) => {
-	if (!(value instanceof Set)) {
-		return false;
-	}
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-	return Array.from(value.values());
-};
+const serializeSet: TransformSet["serialize"] = (value) =>
+	value instanceof Set ? Array.from(value.values()) : false;
 const deserializeSet: TransformSet["deserialize"] = {
 	create: () => new Set(),
 	set: (set, values) => {
@@ -80,14 +59,10 @@ const deserializeSet: TransformSet["deserialize"] = {
 	},
 };
 
-type TransformUndef = TransformerPair<undefined, void>;
+type TransformUndef = TransformerPair<undefined, undefined>;
 
-const serializeUndef: TransformUndef["serialize"] = (value) => {
-	if (value !== undefined) {
-		return false;
-	}
-	return undefined;
-};
+const serializeUndef: TransformUndef["serialize"] = (value) =>
+	value === undefined ? value : false;
 const deserializeUndef: TransformUndef["deserialize"] = () => undefined;
 
 /**
@@ -99,7 +74,7 @@ export const serializers = {
 	Map: serializeMap,
 	RegExp: serializeRegExp,
 	Set: serializeSet,
-	undef: serializeUndef,
+	undefined: serializeUndef,
 } satisfies SerializeRecord;
 
 /**
@@ -111,5 +86,5 @@ export const deserializers = {
 	Map: deserializeMap,
 	RegExp: deserializeRegExp,
 	Set: deserializeSet,
-	undef: deserializeUndef,
+	undefined: deserializeUndef,
 } satisfies DeserializerRecord;

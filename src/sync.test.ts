@@ -375,7 +375,7 @@ test("serialize/deserialize undefined", () => {
 		{
 		  "json": {
 		    "_": "$",
-		    "type": "undef",
+		    "type": "undefined",
 		  },
 		}
 	`);

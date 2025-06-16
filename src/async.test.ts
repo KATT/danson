@@ -71,8 +71,7 @@ test("serialize async iterable", async () => {
 		    {
 		      "json": {
 		        "_": "$",
-		        "type": "undef",
-		        "value": 0,
+		        "type": "undefined",
 		      },
 		      "refs": undefined,
 		    },
@@ -83,8 +82,7 @@ test("serialize async iterable", async () => {
 		    {
 		      "json": {
 		        "_": "$",
-		        "type": "undef",
-		        "value": 0,
+		        "type": "undefined",
 		      },
 		      "refs": undefined,
 		    },
