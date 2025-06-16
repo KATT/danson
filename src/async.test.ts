@@ -6,13 +6,13 @@ import {
 	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
+import { deserializers, serializers } from "./std.js";
 import {
 	aggregateAsyncIterable,
 	serverResource,
 	sleep,
 	waitError,
 } from "./test.utils.js";
-import { deserializers, serializers } from "./std.js";
 
 test("serialize async iterable", async () => {
 	const source = () => ({

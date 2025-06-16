@@ -7,8 +7,8 @@ import {
 	RefLikeString,
 	SerializeInternalOptions,
 	SerializeOptions,
-	SerializeReturn,
 	SerializeRecord,
+	SerializeReturn,
 	serializeSync,
 	StringifyOptions,
 } from "./sync.js";

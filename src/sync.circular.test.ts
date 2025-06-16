@@ -1,12 +1,12 @@
 import { expect, test } from "vitest";
 
+import { deserializers, serializers } from "./std.js";
 import {
 	deserializeSync,
 	parseSync,
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
-import { deserializers, serializers } from "./std.js";
 
 test("circular object", () => {
 	const source: any = { a: 1 };

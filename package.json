@@ -35,7 +35,9 @@
 	"scripts": {
 		"bench": "vitest bench",
 		"build": "tsdown",
-		"format": "prettier . --write",
+		"format": "run-s format:*",
+		"format:eslint": "eslint . --fix",
+		"format:prettier": "prettier . --write",
 		"lint": "run-p lint:* --print-label",
 		"lint:eslint": "eslint . --max-warnings 0",
 		"lint:knip": "knip",
