@@ -1,8 +1,8 @@
 import * as superjson from "superjson";
 import { bench, describe } from "vitest";
 
-import { parseSync, stringifySync } from "./sync.js";
 import { deserializers, serializers } from "./std.js";
+import { parseSync, stringifySync } from "./sync.js";
 
 const obj = {
 	array: [{ foo: 1 }, { bar: 2 }, { baz: 3 }],

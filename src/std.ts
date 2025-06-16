@@ -78,52 +78,6 @@ const deserializeURLSearchParams: TransformURLSearchParams["deserialize"] = (
 	value,
 ) => new URLSearchParams(value);
 
-type TransformFormData = TransformerPair<
-	FormData,
-	[string, string | { name: string; size: number; type: string }][]
->;
-
-const serializeFormData: TransformFormData["serialize"] = (value) =>
-	value instanceof FormData
-		? Array.from(value.entries()).map(([key, val]) => [
-				key,
-				val instanceof File
-					? { name: val.name, size: val.size, type: val.type }
-					: val.toString(),
-			])
-		: false;
-const deserializeFormData: TransformFormData["deserialize"] = {
-	create: () => new FormData(),
-	set: (formData, entries) => {
-		for (const [key, value] of entries) {
-			if (typeof value === "string") {
-				formData.append(key, value);
-			} else {
-				formData.append(key, new File([], value.name, { type: value.type }));
-			}
-		}
-	},
-};
-
-type TransformBlob = TransformerPair<Blob, { size: number; type: string }>;
-
-const serializeBlob: TransformBlob["serialize"] = (value) =>
-	value instanceof Blob ? { size: value.size, type: value.type } : false;
-const deserializeBlob: TransformBlob["deserialize"] = (value) =>
-	new Blob([], { type: value.type });
-
-type TransformFile = TransformerPair<
-	File,
-	{ name: string; size: number; type: string }
->;
-
-const serializeFile: TransformFile["serialize"] = (value) =>
-	value instanceof File
-		? { name: value.name, size: value.size, type: value.type }
-		: false;
-const deserializeFile: TransformFile["deserialize"] = (value) =>
-	new File([], value.name, { type: value.type });
-
 type TransformHeaders = TransformerPair<Headers, [string, string][]>;
 
 const serializeHeaders: TransformHeaders["serialize"] = (value) =>
@@ -149,7 +103,7 @@ type TransformTypedArray = TransformerPair<
 	| Uint8ClampedArray
 	| Uint16Array
 	| Uint32Array,
-	{ data: bigint[] | number[]; type: string }
+	[type: string, data: bigint[] | number[]]
 >;
 
 const serializeTypedArray: TransformTypedArray["serialize"] = (value) => {
@@ -164,42 +118,61 @@ const serializeTypedArray: TransformTypedArray["serialize"] = (value) => {
 		value instanceof Float32Array ||
 		value instanceof Float64Array
 	) {
-		return {
-			data: Array.from(value),
-			type: value.constructor.name,
-		};
+		return [value.constructor.name, Array.from(value)];
 	}
 	if (value instanceof BigInt64Array || value instanceof BigUint64Array) {
-		return {
-			data: Array.from(value),
-			type: value.constructor.name,
-		};
+		return [value.constructor.name, Array.from(value)];
 	}
 	return false;
 };
 
 const deserializeTypedArray: TransformTypedArray["deserialize"] = (value) => {
+	const [type, data] = value;
 	const TypedArrayConstructor = globalThis[
-		value.type as keyof typeof globalThis
+		type as keyof typeof globalThis
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	] as new (data: bigint[] | number[]) => any;
+
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-	return new TypedArrayConstructor(value.data);
+	return new TypedArrayConstructor(data);
 };
 
-/* eslint-disable perfectionist/sort-objects */
+// handle -0, Infinity, -Infinity
+type TransformSpecialNumber = TransformerPair<
+	number,
+	`-0` | `-Infinity` | `Infinity`
+>;
+const serializeSpecialNumber: TransformSpecialNumber["serialize"] = (value) => {
+	if (typeof value !== "number") {
+		return false;
+	}
+	if (value === 0 && 1 / value < 0) {
+		return "-0";
+	}
+	if (value === Infinity) {
+		return "Infinity";
+	}
+	if (value === -Infinity) {
+		return "-Infinity";
+	}
+	return false;
+};
+
+const deserializeSpecialNumber: TransformSpecialNumber["deserialize"] = (
+	value,
+) => {
+	return Number(value);
+};
 
 /**
  * Built-in serializers for common JS types
  */
 export const serializers = {
 	BigInt: serializeBigInt,
-	File: serializeFile, // <-- needs to be before Blob as it's a subclass of Blob
-	Blob: serializeBlob,
 	Date: serializeDate,
-	FormData: serializeFormData,
 	Headers: serializeHeaders,
 	Map: serializeMap,
+	number: serializeSpecialNumber,
 	RegExp: serializeRegExp,
 	Set: serializeSet,
 	TypedArray: serializeTypedArray,
@@ -208,19 +181,15 @@ export const serializers = {
 	URLSearchParams: serializeURLSearchParams,
 } satisfies SerializeRecord;
 
-/* eslint-enable perfectionist/sort-objects */
-
 /**
  * Built-in deserializers for common JS types
  */
 export const deserializers = {
 	BigInt: deserializeBigInt,
-	Blob: deserializeBlob,
 	Date: deserializeDate,
-	File: deserializeFile,
-	FormData: deserializeFormData,
 	Headers: deserializeHeaders,
 	Map: deserializeMap,
+	number: deserializeSpecialNumber,
 	RegExp: deserializeRegExp,
 	Set: deserializeSet,
 	TypedArray: deserializeTypedArray,
