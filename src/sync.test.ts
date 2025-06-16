@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import {
@@ -383,4 +383,29 @@ test("serialize/deserialize undefined", () => {
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 	const result = deserializeSync<typeof source>({ ...obj, deserializers });
 	expect(result).toEqual(source);
+});
+
+describe("magic types", () => {
+	test("stringify + parse", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifySync(source);
+
+		const result = parseSync(str);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("serialize + deserialize", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeSync(source);
+		const result = deserializeSync(obj);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
 });

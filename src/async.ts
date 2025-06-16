@@ -195,8 +195,8 @@ export interface StringifyAsyncOptions
 	//
 }
 
-export async function* stringifyAsync(
-	value: unknown,
+export async function* stringifyAsync<T>(
+	value: T,
 	options: StringifyAsyncOptions = {},
 ) {
 	const iterator = serializeAsync(value, options);

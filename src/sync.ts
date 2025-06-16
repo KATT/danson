@@ -7,6 +7,7 @@ import {
 	JsonArray,
 	JsonObject,
 	JsonValue,
+	Typed,
 } from "./utils.js";
 
 export type RefLikeString<TNumber extends number = number> = `$${TNumber}`;
@@ -77,7 +78,7 @@ function isSubPath(path: Path, subPath: Path): boolean {
 	return true;
 }
 
-export function serializeSync(value: unknown, options: SerializeOptions = {}) {
+export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
 	const values = new Map<unknown, [Index, Location, Path]>();
@@ -219,7 +220,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		result.refs = refs;
 	}
 
-	return result;
+	return result as Typed<SerializeReturn, T>;
 }
 
 export interface SerializeReturn {
@@ -258,10 +259,10 @@ export interface StringifyOptions extends SerializeOptions {
 	space?: number | string;
 }
 
-export function stringifySync(value: unknown, options: StringifyOptions = {}) {
+export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
 	const result = serializeSync(value, options);
 
-	return JSON.stringify(result, null, options.space);
+	return JSON.stringify(result, null, options.space) as Typed<string, T>;
 }
 
 export type DeserializerFn<TOriginal, TSerialized> = (
@@ -285,6 +286,12 @@ export interface DeserializeOptions extends SerializeReturn {
 	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
 }
+export interface TypedDeserializeOptions<T>
+	extends Typed<DeserializeOptions, T> {
+	cache?: Map<RefLikeString, unknown>;
+	deserializers?: DeserializerRecord;
+}
+export function deserializeSync<T>(options: TypedDeserializeOptions<T>): T;
 export function deserializeSync<T>(options: DeserializeOptions): T {
 	const deserializers = options.deserializers ?? {};
 	const cache = options.cache ?? new Map<RefLikeString, unknown>();
@@ -371,12 +378,16 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 export interface ParseSyncOptions {
 	deserializers?: DeserializerRecord;
 }
+export function parseSync<T>(
+	value: Typed<string, T>,
+	options?: ParseSyncOptions,
+): T;
 export function parseSync<T>(value: string, options?: ParseSyncOptions) {
 	const json = JSON.parse(value) as SerializeReturn;
 	return deserializeSync<T>({
 		...options,
 		...json,
-	});
+	} as TypedDeserializeOptions<T>);
 }
 
 export interface TransformerPair<TOriginal, TSerialized> {

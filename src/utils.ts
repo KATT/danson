@@ -1,4 +1,7 @@
+export const TYPE_SYMBOL = Symbol.for("danson.type");
+
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
+export type Typed<T, Type> = T & { [TYPE_SYMBOL]: Type };
 
 export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
