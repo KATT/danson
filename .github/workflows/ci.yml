@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare
-      - run: pnpm format
+      - run: pnpm format:prettier --list-different
   test:
     name: Test
     runs-on: ubuntu-latest
