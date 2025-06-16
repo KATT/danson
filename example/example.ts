@@ -28,9 +28,13 @@ type Source = ReturnType<typeof source>;
 async function main() {
 	{
 		console.log("Stringifying and parsing the object...");
-		const iterator = stringifyAsync(source());
+		const iterator = stringifyAsync(source(), {
+			serializers: std.serializers,
+		});
 
-		const obj = await parseAsync<Source>(iterator);
+		const obj = await parseAsync<Source>(iterator, {
+			deserializers: std.deserializers,
+		});
 
 		console.log("Recreated object:", obj);
 	}
@@ -56,7 +60,9 @@ async function main() {
 		const obj = {
 			selfReferencingObject,
 		};
-		const stringified = stringifySync(obj);
+		const stringified = stringifySync(obj, {
+			serializers: std.serializers,
+		});
 		console.dir(JSON.parse(stringified), { depth: null });
 
 		const parsed = parseSync<typeof obj>(stringified, {
