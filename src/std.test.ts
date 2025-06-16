@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import { parseSync, stringifySync } from "./sync.js";
@@ -15,26 +15,22 @@ function parse<T>(value: string) {
 	});
 }
 
-describe("BigInt", () => {
-	it("BigInt", () => {
-		const value = BigInt(123);
-		const str = stringify(value);
-		const deserialized = parse<bigint>(str);
-		expect(deserialized).toBe(value);
-	});
+test("BigInt", () => {
+	const value = BigInt(123);
+	const str = stringify(value);
+	const deserialized = parse<bigint>(str);
+	expect(deserialized).toBe(value);
 });
 
-describe("Date", () => {
-	it("Date", () => {
-		const value = new Date("2024-01-01T00:00:00.000Z");
-		const str = stringify(value);
-		const deserialized = parse<Date>(str);
-		expect(deserialized).toEqual(value);
-	});
+test("Date", () => {
+	const value = new Date("2024-01-01T00:00:00.000Z");
+	const str = stringify(value);
+	const deserialized = parse<Date>(str);
+	expect(deserialized).toEqual(value);
 });
 
 describe("Map", () => {
-	it("Map", () => {
+	test("basic", () => {
 		const value = new Map([
 			["a", 1],
 			["b", 2],
@@ -44,7 +40,7 @@ describe("Map", () => {
 		expect(deserialized).toEqual(value);
 	});
 
-	it("self-referencing Map", () => {
+	test("self-referencing", () => {
 		const value = new Map();
 		value.set("self", value);
 		value.set("a", 1);
@@ -55,24 +51,22 @@ describe("Map", () => {
 	});
 });
 
-describe("RegExp", () => {
-	it("RegExp", () => {
-		const value = /test/i;
-		const str = stringify(value);
-		const deserialized = parse<RegExp>(str);
-		expect(deserialized).toEqual(value);
-	});
+test("RegExp", () => {
+	const value = /test/i;
+	const str = stringify(value);
+	const deserialized = parse<RegExp>(str);
+	expect(deserialized).toEqual(value);
 });
 
 describe("Set", () => {
-	it("Set", () => {
+	test("basic", () => {
 		const value = new Set([1, 2, 3]);
 		const str = stringify(value);
 		const deserialized = parse<Set<number>>(str);
 		expect(deserialized).toEqual(value);
 	});
 
-	it("self-referencing Set", () => {
+	test("self-referencing", () => {
 		const value = new Set();
 		value.add(value);
 		value.add(1);
@@ -83,47 +77,41 @@ describe("Set", () => {
 	});
 });
 
-describe("URL", () => {
-	it("URL", () => {
-		const value = new URL(
-			"https://user:pass@example.com:8080/path/to/page?query=value&other=123#section",
-		);
-		const str = stringify(value);
-		const deserialized = parse<URL>(str);
+test("URL", () => {
+	const value = new URL(
+		"https://user:pass@example.com:8080/path/to/page?query=value&other=123#section",
+	);
+	const str = stringify(value);
+	const deserialized = parse<URL>(str);
 
-		expect(deserialized).toEqual(value);
-	});
+	expect(deserialized).toEqual(value);
 });
 
-describe("URLSearchParams", () => {
-	it("URLSearchParams", () => {
-		const value = new URLSearchParams("a=1&b=2");
-		const str = stringify(value);
-		const deserialized = parse<URLSearchParams>(str);
-		expect(deserialized).toEqual(value);
-	});
+test("URLSearchParams", () => {
+	const value = new URLSearchParams("a=1&b=2");
+	const str = stringify(value);
+	const deserialized = parse<URLSearchParams>(str);
+	expect(deserialized).toEqual(value);
 });
 
-describe("Headers", () => {
-	it("Headers", () => {
-		const value = new Headers();
-		value.append("a", "1");
-		value.append("b", "2");
-		const str = stringify(value);
-		const deserialized = parse<Headers>(str);
-		expect(deserialized).toEqual(value);
-	});
+test("Headers", () => {
+	const value = new Headers();
+	value.append("a", "1");
+	value.append("b", "2");
+	const str = stringify(value);
+	const deserialized = parse<Headers>(str);
+	expect(deserialized).toEqual(value);
 });
 
 describe("TypedArray", () => {
-	it("Int8Array", () => {
+	test("Int8Array", () => {
 		const value = new Int8Array([1, 2, 3]);
 		const str = stringify(value);
 		const deserialized = parse<Int8Array>(str);
 		expect(deserialized).toEqual(value);
 	});
 
-	it("BigInt64Array", () => {
+	test("BigInt64Array", () => {
 		const value = new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]);
 		const str = stringify(value);
 		const deserialized = parse<BigInt64Array>(str);
@@ -131,36 +119,33 @@ describe("TypedArray", () => {
 	});
 });
 
-describe("undefined", () => {
-	it("undefined", () => {
-		const value = undefined;
-		const str = stringify(value);
-		// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-		const deserialized = parse<undefined>(str);
-		expect(deserialized).toBe(value);
-	});
+test("undefined", () => {
+	const value = undefined;
+	const str = stringify(value);
+	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+	const deserialized = parse<undefined>(str);
+	expect(deserialized).toBe(value);
 });
 
 describe("number", () => {
-	it("Infinity", () => {
+	test("Infinity", () => {
 		const value = Infinity;
 		const str = stringify(value);
 		const deserialized = parse<number>(str);
 		expect(deserialized).toBe(value);
 	});
 
-	it("-Infinity", () => {
+	test("-Infinity", () => {
 		const value = -Infinity;
 		const str = stringify(value);
 		const deserialized = parse<number>(str);
 		expect(deserialized).toBe(value);
 	});
 
-	it("-0", () => {
+	test("-0", () => {
 		const value = -0;
 		const str = stringify(value);
 		const deserialized = parse<number>(str);
 		expect(deserialized).toBe(value);
-		expect(Object.is(deserialized, -0)).toBe(true);
 	});
 });
