@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.7.0](https://github.com/KATT/danson/compare/0.6.1...0.7.0) (2025-06-16)
+
+### Features
+
+- add std lib of transformers ([#4](https://github.com/KATT/danson/issues/4)) ([b1e5c8b](https://github.com/KATT/danson/commit/b1e5c8b632d5cb61657a0b8c7978bb580c5a4115))
+
 ## [0.6.1](https://github.com/KATT/danson/compare/0.6.0...0.6.1) (2025-06-13)
 
 ### Bug Fixes
