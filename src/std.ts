@@ -187,14 +187,16 @@ const deserializeTypedArray: TransformTypedArray["deserialize"] = (value) => {
 	return new TypedArrayConstructor(value.data);
 };
 
+/* eslint-disable perfectionist/sort-objects */
+
 /**
  * Built-in serializers for common JS types
  */
 export const serializers = {
 	BigInt: serializeBigInt,
+	File: serializeFile, // <-- needs to be before Blob as it's a subclass of Blob
 	Blob: serializeBlob,
 	Date: serializeDate,
-	File: serializeFile,
 	FormData: serializeFormData,
 	Headers: serializeHeaders,
 	Map: serializeMap,
@@ -205,6 +207,8 @@ export const serializers = {
 	URL: serializeURL,
 	URLSearchParams: serializeURLSearchParams,
 } satisfies SerializeRecord;
+
+/* eslint-enable perfectionist/sort-objects */
 
 /**
  * Built-in deserializers for common JS types
