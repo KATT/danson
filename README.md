@@ -20,20 +20,9 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 - Custom serializers / deserializers
 - De-duplication of objects (optional)
 - Circular references
-- Built-in serializers for common JavaScript types:
-  - `BigInt`
-  - `Date`
-  - `Headers`
-  - `Map`
-  - Special numbers (`-0`, `Infinity`, `-Infinity`)
-  - `RegExp`
-  - `Set`
-  - TypedArrays (`Int8Array`, `Uint8Array`, etc.)
-  - `undefined`
-  - `URL`
-  - `URLSearchParams`
-  - Serializable errors
-  - Human-readable JSON output
+- Serializable errors
+- Human-readable JSON output
+- Built-in serializers for common JavaScript types
 
 ## Installation
 
@@ -86,6 +75,20 @@ console.log(await parsed.promise); // "hello promise"
 ### Built-in Serializers
 
 The `std` module provides built-in serializers for common JavaScript types. Works with both synchronous and asynchronous usage.
+
+Supported types:
+
+- `BigInt`
+- `Date`
+- `Headers`
+- `Map`
+- Special numbers (`-0`, `Infinity`, `-Infinity`)
+- `RegExp`
+- `Set`
+- TypedArrays (`Int8Array`, `Uint8Array`, etc.)
+- `undefined`
+- `URL`
+- `URLSearchParams`
 
 ```ts
 import { parseSync, std, stringifySync } from "danson";
