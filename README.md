@@ -33,7 +33,7 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
   - `URL`
   - `URLSearchParams`
   - Serializable errors
-  - Human-readable error messages
+  - Human-readable JSON output
 
 ## Installation
 
