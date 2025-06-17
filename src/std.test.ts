@@ -122,13 +122,15 @@ describe("TypedArray", () => {
 });
 
 test("undefined", () => {
-	const value = undefined;
+	const value = {
+		foo: undefined,
+	};
 	const str = stringify(value);
 
-	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 	const deserialized = parse(str);
 
-	expect(deserialized).toBe(value);
+	expect(deserialized).toHaveProperty("foo", undefined);
+	expect(deserialized).toEqual(value);
 });
 
 describe("number", () => {

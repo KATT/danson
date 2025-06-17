@@ -122,3 +122,25 @@ test("failed cleanup", async () => {
 		]
 	`);
 });
+
+test("cannot iterate twice", async () => {
+	const merged = mergeAsyncIterables<string>();
+
+	merged.add(
+		(async function* () {
+			yield "a";
+			yield "b";
+			yield "c";
+		})(),
+	);
+
+	// First iteration
+	await merged[Symbol.asyncIterator]().next();
+
+	const error = await waitError(async () => {
+		const newIterator = merged[Symbol.asyncIterator]();
+		await newIterator.next();
+	}, Error);
+
+	expect(error).toMatchInlineSnapshot(`[Error: Cannot iterate twice]`);
+});

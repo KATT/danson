@@ -375,7 +375,9 @@ test("stringify custom type", () => {
 });
 
 test("serialize/deserialize undefined", () => {
-	const source = undefined;
+	const source = {
+		foo: undefined,
+	};
 
 	const obj = serializeSync(source, {
 		serializers,
@@ -383,13 +385,14 @@ test("serialize/deserialize undefined", () => {
 	expect(obj).toMatchInlineSnapshot(`
 		{
 		  "json": {
-		    "_": "$",
-		    "type": "undefined",
+		    "foo": {
+		      "_": "$",
+		      "type": "undefined",
+		    },
 		  },
 		}
 	`);
 
-	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 	const result = deserializeSync<typeof source>(obj, {
 		deserializers,
 	});
@@ -441,4 +444,15 @@ describe("magic types", () => {
 
 		expectTypeOf(result).toEqualTypeOf<typeof source>();
 	});
+});
+
+test("serialize/deserialize undefined at top level", () => {
+	const source = undefined;
+
+	const obj = serializeSync(source);
+	expect(obj).toEqual({});
+
+	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+	const result = deserializeSync(obj);
+	expect(result).toEqual(source);
 });

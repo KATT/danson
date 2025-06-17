@@ -87,6 +87,9 @@ function isSubPath(path: Path, subPath: Path): boolean {
  * @returns An object containing the serialized JSON and any references
  */
 export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
+	if (value === undefined) {
+		return {} as Serialized<SerializeReturn, T>;
+	}
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
 	const values = new Map<unknown, [Index, Location, Path]>();
@@ -234,7 +237,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 }
 
 export interface SerializeReturn {
-	json: JsonValue;
+	json?: JsonValue;
 	refs?: RefRecord;
 }
 
@@ -325,6 +328,9 @@ export function deserializeSync<T>(
 	obj: Serialized<SerializeReturn, T> | SerializeReturn,
 	options: DeserializeOptions = {},
 ): T {
+	if (obj.json === undefined) {
+		return undefined as T;
+	}
 	const deserializers = options.deserializers ?? {};
 	const cache = options.internal?.cache ?? new Map<RefLikeString, unknown>();
 

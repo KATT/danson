@@ -289,9 +289,6 @@ export async function deserializeAsync<T>(
 							break;
 						case ASYNC_ITERABLE_STATUS_ERROR:
 							throw value;
-						default:
-							// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-							throw new Error(`Unknown async iterable status: ${status}`);
 					}
 				},
 			});
@@ -323,9 +320,6 @@ export async function deserializeAsync<T>(
 							return value;
 						case PROMISE_STATUS_REJECTED:
 							throw value;
-						default:
-							// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-							throw new Error(`Unknown promise status: ${status}`);
 					}
 				}
 			})();

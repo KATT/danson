@@ -25,9 +25,7 @@ test("serialize async iterable", async () => {
 		})(),
 	});
 
-	const iterable = serializeAsync(source(), {
-		serializers,
-	});
+	const iterable = serializeAsync(source());
 
 	const aggregate = await aggregateAsyncIterable(iterable);
 
@@ -66,22 +64,12 @@ test("serialize async iterable", async () => {
 		  [
 		    1,
 		    2,
-		    {
-		      "json": {
-		        "_": "$",
-		        "type": "undefined",
-		      },
-		    },
+		    {},
 		  ],
 		  [
 		    2,
 		    2,
-		    {
-		      "json": {
-		        "_": "$",
-		        "type": "undefined",
-		      },
-		    },
+		    {},
 		  ],
 		]
 	`);
@@ -206,6 +194,27 @@ test("stringify async generator", async () => {
 			]
 		`);
 	expect(stringifyAggregate.ok).toBe(true);
+});
+
+test("serialize + deserialize async generator returning undefined", async () => {
+	const source = () => ({
+		asyncIterable: (async function* () {
+			yield "a";
+			yield "b";
+			yield undefined;
+		})(),
+	});
+
+	const serialized = serializeAsync(source());
+
+	const parsed = await deserializeAsync(serialized);
+
+	const aggregate = await aggregateAsyncIterable(parsed.asyncIterable);
+
+	expect(aggregate.error).toBeUndefined();
+	expect(aggregate.ok).toBe(true);
+	expect(aggregate.items).toEqual(["a", "b", undefined]);
+	expect(aggregate.return).toBeUndefined();
 });
 
 test("serialize and parse", async () => {
@@ -506,6 +515,35 @@ test("async over the wire", async () => {
 		expect(aggregate.items).toEqual(["hello", "world"]);
 		expect(aggregate.return).toEqual("returned async iterable");
 	}
+});
+
+test("interrupted stream", async () => {
+	const source = () => ({
+		asyncIterable: (async function* () {
+			yield "hello";
+			yield "world";
+		})(),
+	});
+	type Source = ReturnType<typeof source>;
+	const iterable = stringifyAsync(source());
+
+	const result = await parseAsync<Source>(
+		(async function* () {
+			let chunkIndex = 0;
+			for await (const chunk of iterable) {
+				chunkIndex++;
+				if (chunkIndex > 2) {
+					return;
+				}
+				yield chunk;
+			}
+		})(),
+	);
+
+	const aggregate = await aggregateAsyncIterable(result.asyncIterable);
+
+	expect(aggregate.error).toBeInstanceOf(Error);
+	expect(aggregate.error).toMatchInlineSnapshot(`[Error: Stream interrupted]`);
 });
 
 test("dedupe", async () => {
