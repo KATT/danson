@@ -7,17 +7,17 @@ import {
 	JsonArray,
 	JsonObject,
 	JsonValue,
-	Typed,
+	Serialized,
 } from "./utils.js";
 
 export type RefLikeString<TNumber extends number = number> = `$${TNumber}`;
 
-function isRefLikeString(thing: unknown): thing is RefLikeString {
-	if (typeof thing !== "string" || thing.length < 2 || !thing.startsWith("$")) {
+function isRefLikeString(value: unknown): value is RefLikeString {
+	if (typeof value !== "string" || value.length < 2 || !value.startsWith("$")) {
 		return false;
 	}
-	for (let i = 1; i < thing.length; i++) {
-		const char = thing.charCodeAt(i);
+	for (let i = 1; i < value.length; i++) {
+		const char = value.charCodeAt(i);
 		// not 0-9
 		if (char < 48 || char > 57) {
 			return false;
@@ -220,7 +220,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		result.refs = refs;
 	}
 
-	return result as Typed<SerializeReturn, T>;
+	return result as Serialized<SerializeReturn, T>;
 }
 
 export interface SerializeReturn {
@@ -262,7 +262,7 @@ export interface StringifyOptions extends SerializeOptions {
 export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
 	const result = serializeSync(value, options);
 
-	return JSON.stringify(result, null, options.space) as Typed<string, T>;
+	return JSON.stringify(result, null, options.space) as Serialized<string, T>;
 }
 
 export type DeserializerFn<TOriginal, TSerialized> = (
@@ -286,9 +286,9 @@ export interface DeserializeOptions {
 	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
 }
-export type TypedDeserializeOptions<T> = Typed<DeserializeOptions, T>;
+export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
 export function deserializeSync<T>(
-	obj: SerializeReturn | Typed<SerializeReturn, T>,
+	obj: Serialized<SerializeReturn, T> | SerializeReturn,
 	options?: DeserializeOptions,
 ): T {
 	const deserializers = options?.deserializers ?? {};
@@ -374,10 +374,10 @@ export function deserializeSync<T>(
 }
 
 export function parseSync<T>(
-	value: string | Typed<string, T>,
+	value: Serialized<string, T> | string,
 	options?: DeserializeOptions,
 ): T {
-	const json = JSON.parse(value) as Typed<SerializeReturn, T>;
+	const json = JSON.parse(value) as Serialized<SerializeReturn, T>;
 	return deserializeSync<T>(json, options);
 }
 

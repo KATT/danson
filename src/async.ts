@@ -12,7 +12,12 @@ import {
 	serializeSync,
 	StringifyOptions,
 } from "./sync.js";
-import { Branded, counter, CounterFn } from "./utils.js";
+import {
+	Branded,
+	counter,
+	CounterFn,
+	SerializedAsyncIterable,
+} from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
 	return value as Branded<T, "chunkStatus">;
@@ -50,16 +55,13 @@ export interface SerializeAsyncOptions
 
 type SerializeAsyncChunk = [ChunkIndex, ChunkStatus, SerializeReturn];
 
-type SerializeAsyncYield =
+export type SerializeAsyncYield =
 	// yielded chunks
 	| SerializeAsyncChunk
 	// First chunk
 	| SerializeReturn;
 
-export async function* serializeAsync(
-	value: unknown,
-	options?: SerializeAsyncOptions,
-) {
+export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
 	/* eslint-disable perfectionist/sort-objects */
 	const serializers: SerializeRecord = {
 		...options?.serializers,
@@ -149,8 +151,7 @@ export async function* serializeAsync(
 		};
 	}
 
-	const mergedIterables =
-		mergeAsyncIterables<[ChunkIndex, ChunkStatus, SerializeReturn]>();
+	const mergedIterables = mergeAsyncIterables<SerializeAsyncChunk>();
 
 	function registerAsync(
 		callback: () => AsyncIterable<[ChunkStatus, SerializeReturn]>,
@@ -182,11 +183,15 @@ export async function* serializeAsync(
 		}
 	}
 
-	yield serialize(value);
+	async function* inner(): AsyncIterable<SerializeAsyncYield, void> {
+		yield serialize(value);
 
-	for await (const item of mergedIterables) {
-		yield item;
+		for await (const item of mergedIterables) {
+			yield item;
+		}
 	}
+
+	return inner() as SerializedAsyncIterable<SerializeAsyncYield, T>;
 }
 
 export interface StringifyAsyncOptions
@@ -195,15 +200,19 @@ export interface StringifyAsyncOptions
 	//
 }
 
-export async function* stringifyAsync<T>(
+export function stringifyAsync<T>(
 	value: T,
 	options: StringifyAsyncOptions = {},
 ) {
-	const iterator = serializeAsync(value, options);
+	async function* inner(): AsyncIterable<string, void> {
+		const iterator = serializeAsync(value, options);
 
-	for await (const item of iterator) {
-		yield JSON.stringify(item, null, options.space) + "\n";
+		for await (const item of iterator) {
+			yield JSON.stringify(item, null, options.space) + "\n";
+		}
 	}
+
+	return inner() as SerializedAsyncIterable<string, T>;
 }
 
 export interface DeserializeAsyncOptions
@@ -212,9 +221,11 @@ export interface DeserializeAsyncOptions
 }
 
 export async function deserializeAsync<T>(
-	iterable: AsyncIterable<SerializeAsyncYield, void>,
+	iterable:
+		| AsyncIterable<SerializeAsyncYield, void>
+		| SerializedAsyncIterable<SerializeAsyncYield, T>,
 	options?: DeserializeAsyncOptions,
-) {
+): Promise<T> {
 	const iterator = iterable[Symbol.asyncIterator]();
 	const controllerMap = new Map<
 		ChunkIndex,
@@ -402,7 +413,7 @@ export async function deserializeAsync<T>(
 }
 
 export function parseAsync<T>(
-	value: AsyncIterable<string, void>,
+	value: AsyncIterable<string, void> | SerializedAsyncIterable<string, T>,
 	options?: DeserializeAsyncOptions,
 ): Promise<T> {
 	return deserializeAsync(jsonAggregator(value), options);

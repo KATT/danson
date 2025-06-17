@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import { parseSync, stringifySync } from "./sync.js";
-import { Typed } from "./utils.js";
+import { Serialized } from "./utils.js";
 
 function stringify<T>(value: T) {
 	return stringifySync(value, {
@@ -10,7 +10,7 @@ function stringify<T>(value: T) {
 	});
 }
 
-function parse<T>(value: Typed<string, T>) {
+function parse<T>(value: Serialized<string, T>) {
 	return parseSync<T>(value, {
 		deserializers,
 	});

@@ -1,7 +1,12 @@
 export const TYPE_SYMBOL = Symbol();
 
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
-export type Typed<T, Type> = T & { [TYPE_SYMBOL]: Type };
+export type Serialized<T, OriginalType> = T & { [TYPE_SYMBOL]: OriginalType };
+
+export interface SerializedAsyncIterable<T, Type>
+	extends AsyncIterable<T, void> {
+	[TYPE_SYMBOL]: Type;
+}
 
 export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
@@ -20,8 +25,8 @@ export function counter<T extends string>(): CounterFn<T> {
 	};
 }
 
-export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {
-	const type = typeof thing;
+export function isJsonPrimitive(value: unknown): value is JsonPrimitive {
+	const type = typeof value;
 	return type === "boolean" || type === "number" || type === "string";
 }
 
