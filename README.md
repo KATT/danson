@@ -32,12 +32,16 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
   - `undefined`
   - `URL`
   - `URLSearchParams`
+  - Serializable errors
+  - Human-readable error messages
 
 ## Installation
 
 ```shell
 npm install danson
 ```
+
+[Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
 ## Usage
 
@@ -60,6 +64,10 @@ console.log(parsed); // { foo: "bar" }
 ### Asynchronous Usage
 
 ```ts
+import { parseAsync, stringifyAsync } from "danson";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const data = {
 	promise: (async () => {
 		await sleep(1000);
@@ -67,9 +75,9 @@ const data = {
 	})(),
 };
 
-const stringified = stringifyAsync(data);
+const iterable = stringifyAsync(data);
 
-const parsed = await parseAsync(stringified);
+const parsed = await parseAsync(iterable);
 //      ^? { promise: Promise<string> }
 
 console.log(await parsed.promise); // "hello promise"
@@ -77,7 +85,7 @@ console.log(await parsed.promise); // "hello promise"
 
 ### Built-in Serializers
 
-The `std` module provides built-in serializers for common JavaScript types.
+The `std` module provides built-in serializers for common JavaScript types. Works with both synchronous and asynchronous usage.
 
 ```ts
 import { parseSync, std, stringifySync } from "danson";
@@ -85,9 +93,22 @@ import { parseSync, std, stringifySync } from "danson";
 // Using built-in serializers
 const data = {
 	date: new Date(),
+	headers: new Headers({
+		"Content-Type": "application/json",
+	}),
 	map: new Map([["key", "value"]]),
+	numbers: {
+		bigint: 123n,
+		infinity: Infinity,
+		negativeInfinity: -Infinity,
+		negativeZero: -0,
+	},
+	regexp: /foo/g,
 	set: new Set([1, 2, 3]),
+	typedArray: new Int8Array([1, 2, 3]),
+	undef: undefined,
 	url: new URL("https://example.com"),
+	urlSearchParams: new URLSearchParams("foo=bar"),
 };
 
 const stringified = stringifySync(data, {
@@ -111,138 +132,24 @@ const parsed = parseSync(stringified, {
 You can provide custom serializers for your own types.
 
 ```ts
+import { Temporal } from "@js-temporal/polyfill";
 import { std } from "danson";
+
 const stringified = stringifySync(value, {
 	serializers: {
 		...std.serializers, // use the built-in serializers (optional)
-		MyCustomType: (value) => {
-			if (value instanceof MyCustomType) {
-				return value.toJSON();
-			}
-			return false;
-		},
+		"Temporal.Instant": (value) =>
+			value instanceof Temporal.Instant ? value.toJSON() : false,
 	},
 });
 
 const parsed = parseSync(stringified, {
 	deserializers: {
 		...std.deserializers, // use the built-in deserializers (optional)
-		MyCustomType: (value) => new MyCustomType(value),
+		"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
 	},
 });
 ```
-
-## Examples
-
-[Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
-
-### Streaming `Promise`s
-
-#### Promise example input
-
-```ts
-const source = {
-	foo: "bar",
-	promise: (async () => {
-		await sleep(1000);
-		return "hello promise";
-	})(),
-};
-
-const stringified = stringifySync(source, {
-	space: 2,
-});
-for await (const chunk of stringified) {
-	console.log(chunk);
-}
-```
-
-#### Promise example output
-
-<!-- prettier-ignore-start -->
-<!-- eslint-disable -->
-
-```jsonc
-{
-	"json": {
-		"foo": "bar",
-		"promise": {
-			"_": "$", // informs the deserializer that this is a special type
-			"type": "Promise", // it is a Promise
-			"value": 1, // index of the Promise that will come later
-		},
-	},
-}
-```
-
-```jsonc
-[
-	1, // index of the Promise
-	0, // Promise succeeded (0 = success, 1 = failure)
-	{
-		"json": "hello promise"
-	}
-]
-```
-
-### Streaming `AsyncIterable`s
-
-#### AsyncIterable example input
-
-```ts
-const source = {
-	asyncIterable: (async function* () {
-		yield "hello";
-		yield "world";
-
-		return "done";
-	})(),
-};
-
-const stringified = stringifySync(source, {
-	space: 2,
-});
-for await (const chunk of stringified) {
-	console.log(chunk);
-}
-```
-
-#### AsyncIterable example output
-
-```jsonc
-{
-	"json": {
-		"foo": "bar",
-		"asyncIterable": {
-			"_": "$",
-			"type": "AsyncIterable",
-			"value": 0
-		}
-	}
-}
-```
-
-```jsonc
-[
-	0,
-	0,
-	{
-		"json": "world"
-	}
-]
-```
-
-```jsonc
-[
-	0, // index of the AsyncIterable
-	2,
-	{
-		"json": "done"
-	}
-]
-```
-
-
 
 #### `TransformerPair<TOriginal, TSerialized>`
 
@@ -288,6 +195,114 @@ const result = parseSync(stringified, {
 
 <!-- eslint-enable -->
 <!-- prettier-ignore-end -->
+
+## Example outputs
+
+### Streaming `Promise`s
+
+#### Promise example input
+
+```ts
+const source = {
+	foo: "bar",
+	promise: (async () => {
+		await sleep(1000);
+		return "hello promise";
+	})(),
+};
+
+const stringified = stringifySync(source, {
+	space: 2,
+});
+for await (const chunk of stringified) {
+	console.log(chunk);
+}
+```
+
+#### Promise example output
+
+<!-- prettier-ignore-start -->
+<!-- eslint-disable -->
+
+```jsonc
+{
+	"json": {
+		"foo": "bar",
+		"promise": {
+			"_": "$", // informs the deserializer that this is a special type
+			"type": "Promise", // it is a Promise
+			"value": 1, // index of the Promise that will come later
+		},
+	},
+}
+```
+
+```jsonc
+[
+	1, // index of the Promise
+	0, // Promise succeeded (0 = success, 1 = failure)
+	{
+		"json": "hello promise",
+	},
+]
+```
+
+### Streaming `AsyncIterable`s
+
+#### AsyncIterable example input
+
+```ts
+const source = {
+	asyncIterable: (async function* () {
+		yield "hello";
+		yield "world";
+
+		return "done";
+	})(),
+};
+
+const stringified = stringifySync(source, {
+	space: 2,
+});
+for await (const chunk of stringified) {
+	console.log(chunk);
+}
+```
+
+#### AsyncIterable example output
+
+```jsonc
+{
+	"json": {
+		"foo": "bar",
+		"asyncIterable": {
+			"_": "$",
+			"type": "AsyncIterable",
+			"value": 0,
+		},
+	},
+}
+```
+
+```jsonc
+[
+	0,
+	0,
+	{
+		"json": "world",
+	},
+]
+```
+
+```jsonc
+[
+	0, // index of the AsyncIterable
+	2,
+	{
+		"json": "done",
+	},
+]
+```
 
 ## API Reference
 
