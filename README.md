@@ -20,18 +20,9 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 - Custom serializers / deserializers
 - De-duplication of objects (optional)
 - Circular references
-- Built-in serializers for common JavaScript types:
-  - `BigInt`
-  - `Date`
-  - `Headers`
-  - `Map`
-  - Special numbers (`-0`, `Infinity`, `-Infinity`)
-  - `RegExp`
-  - `Set`
-  - TypedArrays (`Int8Array`, `Uint8Array`, etc.)
-  - `undefined`
-  - `URL`
-  - `URLSearchParams`
+- Serializable errors
+- Human-readable JSON output
+- Built-in serializers for common JavaScript types
 
 ## Installation
 
@@ -39,44 +30,173 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 npm install danson
 ```
 
-## Examples
-
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
-### Serializing custom objects
+## Usage
+
+### Synchronous Usage
+
+```ts
+import { parseSync, stringifySync } from "danson";
+
+const data = {
+	foo: "bar",
+};
+
+const stringified = stringifySync(data);
+
+const parsed = parseSync(stringified);
+
+console.log(parsed); // { foo: "bar" }
+```
+
+### Asynchronous Usage
+
+```ts
+import { parseAsync, stringifyAsync } from "danson";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const data = {
+	promise: (async () => {
+		await sleep(1000);
+		return "hello promise";
+	})(),
+};
+
+const iterable = stringifyAsync(data);
+
+const parsed = await parseAsync(iterable);
+//      ^? { promise: Promise<string> }
+
+console.log(await parsed.promise); // "hello promise"
+```
+
+### Built-in Serializers
+
+The `std` module provides built-in serializers for common JavaScript types that works with both synchronous and asynchronous usage.
+
+Supported types:
+
+- `BigInt`
+- `Date`
+- `Headers`
+- `Map`
+- Special numbers (`-0`, `Infinity`, `-Infinity`)
+- `RegExp`
+- `Set`
+- TypedArrays (`Int8Array`, `Uint8Array`, etc.)
+- `undefined`
+- `URL`
+- `URLSearchParams`
+
+```ts
+import { parseSync, std, stringifySync } from "danson";
+
+// Using built-in serializers
+const data = {
+	date: new Date(),
+	headers: new Headers({
+		"Content-Type": "application/json",
+	}),
+	map: new Map([["key", "value"]]),
+	numbers: {
+		bigint: 123n,
+		infinity: Infinity,
+		negativeInfinity: -Infinity,
+		negativeZero: -0,
+	},
+	regexp: /foo/g,
+	set: new Set([1, 2, 3]),
+	typedArray: new Int8Array([1, 2, 3]),
+	undef: undefined,
+	url: new URL("https://example.com"),
+	urlSearchParams: new URLSearchParams("foo=bar"),
+};
+
+const stringified = stringifySync(data, {
+	serializers: {
+		...std.serializers,
+		// ... your custom serializers
+	},
+	space: 2,
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers,
+		// ... your custom deserializers
+	},
+});
+```
+
+### Custom Serialization
+
+You can provide custom serializers for your own types.
 
 ```ts
 import { Temporal } from "@js-temporal/polyfill";
-import { parseSync, stringifySync } from "danson";
+import { std } from "danson";
 
+const stringified = stringifySync(value, {
+	serializers: {
+		...std.serializers, // use the built-in serializers (optional)
+		"Temporal.Instant": (value) =>
+			value instanceof Temporal.Instant ? value.toJSON() : false,
+	},
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers, // use the built-in deserializers (optional)
+		"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
+	},
+});
+```
+
+#### `TransformerPair<TOriginal, TSerialized>`
+
+Type utility for defining serializer/deserializer pairs.
+
+Used internally but can be useful for type-safe custom serializers.
+
+```ts
+import { Temporal } from "@js-temporal/polyfill";
+import { TransformerPair } from "danson";
+
+// Define a type-safe transformer pair for Temporal.Instant
+type TemporalNow = TransformerPair<Temporal.Instant, string>;
+
+const serializeTemporalNow: TemporalNow["serialize"] = (value) => {
+	if (value instanceof Temporal.Instant) {
+		return value.toJSON();
+	}
+	return false;
+};
+
+const deserializeTemporalNow: TemporalNow["deserialize"] = (value) => {
+	return Temporal.Instant.from(value);
+};
+
+// Use the transformer pair
 const source = {
 	instant: Temporal.Now.instant(),
 };
 
 const stringified = stringifySync(source, {
 	serializers: {
-		"Temporal.Instant": (value) => value.toJSON(),
+		"Temporal.Instant": serializeTemporalNow,
 	},
-	space: 2,
 });
-/*
-{
-	"json": {
-		"instant": {
-			"_": "$",
-			"type": "Temporal.Instant",
-			"value": "2025-06-13T15:24:51.30029128Z"
-		}
-	}
-}
-*/
 
-const result = parseSync<typeof source>(stringified, {
+const result = parseSync(stringified, {
 	deserializers: {
-		"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
+		"Temporal.Instant": deserializeTemporalNow,
 	},
 });
 ```
+
+## Example outputs
 
 ### Streaming `Promise`s
 
@@ -112,8 +232,8 @@ for await (const chunk of stringified) {
 			"_": "$", // informs the deserializer that this is a special type
 			"type": "Promise", // it is a Promise
 			"value": 1, // index of the Promise that will come later
-		},
-	},
+		}
+	}
 }
 ```
 
@@ -126,6 +246,9 @@ for await (const chunk of stringified) {
 	}
 ]
 ```
+
+<!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ### Streaming `AsyncIterable`s
 
@@ -148,6 +271,9 @@ for await (const chunk of stringified) {
 	console.log(chunk);
 }
 ```
+
+<!-- prettier-ignore-start -->
+<!-- eslint-disable -->
 
 #### AsyncIterable example output
 
@@ -184,8 +310,9 @@ for await (const chunk of stringified) {
 ]
 ```
 
-<!-- eslint-enable -->
+
 <!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ## API Reference
 
@@ -220,7 +347,3 @@ Serializes a value into a stream of intermediate objects asynchronously.
 ### `deserializeAsync<T>(value: AsyncIterable<unknown, void>, options?: ParseOptions): Promise<T>`
 
 Deserializes a stream of intermediate objects into a value asynchronously.
-
-### Using Built-in Serializers
-
-The `std`
