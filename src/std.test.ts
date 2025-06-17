@@ -154,4 +154,13 @@ describe("number", () => {
 		const deserialized = parse(str);
 		expect(deserialized).toBe(value);
 	});
+
+	// this is up for debate, but I think it's better to throw than to serialize NaN
+	test("NaN should throw", () => {
+		const value = {
+			foo: NaN,
+		};
+		const str = stringify(value);
+		expect(() => parse(str)).toThrow();
+	});
 });
