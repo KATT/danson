@@ -6,6 +6,7 @@ import {
 	deserializeSync,
 	numberToRef,
 	parseSync,
+	SerializeReturn,
 	serializeSync,
 	stringifySync,
 } from "./sync.js";
@@ -40,7 +41,10 @@ test("object", () => {
 	expect(meta.json).toEqual(source);
 	expect(meta.refs).toBeUndefined();
 
-	expect(deserializeSync(meta)).toEqual(source);
+	const result = deserializeSync(meta);
+
+	expect(result).toEqual(source);
+	expectTypeOf(result).toEqualTypeOf<typeof source>();
 });
 
 test("object without prototype", () => {
@@ -405,6 +409,28 @@ describe("magic types", () => {
 
 		const obj = serializeSync(source);
 		const result = deserializeSync(obj);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual stringify + parse", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifySync(source);
+		const result = parseSync<typeof source>(str as string);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual serialize + deserialize", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeSync(source);
+		const result = deserializeSync<typeof source>(obj as SerializeReturn);
 
 		expectTypeOf(result).toEqualTypeOf<typeof source>();
 	});

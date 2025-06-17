@@ -1,15 +1,16 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import { parseSync, stringifySync } from "./sync.js";
+import { Typed } from "./utils.js";
 
-function stringify(value: unknown) {
+function stringify<T>(value: T) {
 	return stringifySync(value, {
 		serializers,
 	});
 }
 
-function parse<T>(value: string) {
+function parse<T>(value: Typed<string, T>) {
 	return parseSync<T>(value, {
 		deserializers,
 	});
@@ -18,14 +19,15 @@ function parse<T>(value: string) {
 test("BigInt", () => {
 	const value = BigInt(123);
 	const str = stringify(value);
-	const deserialized = parse<bigint>(str);
+	const deserialized = parse(str);
+	expectTypeOf(deserialized).toEqualTypeOf<typeof value>();
 	expect(deserialized).toBe(value);
 });
 
 test("Date", () => {
 	const value = new Date("2024-01-01T00:00:00.000Z");
 	const str = stringify(value);
-	const deserialized = parse<Date>(str);
+	const deserialized = parse(str);
 	expect(deserialized).toEqual(value);
 });
 
@@ -36,7 +38,7 @@ describe("Map", () => {
 			["b", 2],
 		]);
 		const str = stringify(value);
-		const deserialized = parse<Map<string, number>>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toEqual(value);
 	});
 
@@ -45,7 +47,7 @@ describe("Map", () => {
 		value.set("self", value);
 		value.set("a", 1);
 		const str = stringify(value);
-		const deserialized = parse<Map<string, unknown>>(str);
+		const deserialized = parse(str);
 
 		expect(deserialized).toEqual(value);
 	});
@@ -54,7 +56,7 @@ describe("Map", () => {
 test("RegExp", () => {
 	const value = /test/i;
 	const str = stringify(value);
-	const deserialized = parse<RegExp>(str);
+	const deserialized = parse(str);
 	expect(deserialized).toEqual(value);
 });
 
@@ -62,7 +64,7 @@ describe("Set", () => {
 	test("basic", () => {
 		const value = new Set([1, 2, 3]);
 		const str = stringify(value);
-		const deserialized = parse<Set<number>>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toEqual(value);
 	});
 
@@ -71,7 +73,7 @@ describe("Set", () => {
 		value.add(value);
 		value.add(1);
 		const str = stringify(value);
-		const deserialized = parse<Set<unknown>>(str);
+		const deserialized = parse(str);
 
 		expect(deserialized).toEqual(value);
 	});
@@ -82,7 +84,7 @@ test("URL", () => {
 		"https://user:pass@example.com:8080/path/to/page?query=value&other=123#section",
 	);
 	const str = stringify(value);
-	const deserialized = parse<URL>(str);
+	const deserialized = parse(str);
 
 	expect(deserialized).toEqual(value);
 });
@@ -90,7 +92,7 @@ test("URL", () => {
 test("URLSearchParams", () => {
 	const value = new URLSearchParams("a=1&b=2");
 	const str = stringify(value);
-	const deserialized = parse<URLSearchParams>(str);
+	const deserialized = parse(str);
 	expect(deserialized).toEqual(value);
 });
 
@@ -99,7 +101,7 @@ test("Headers", () => {
 	value.append("a", "1");
 	value.append("b", "2");
 	const str = stringify(value);
-	const deserialized = parse<Headers>(str);
+	const deserialized = parse(str);
 	expect(deserialized).toEqual(value);
 });
 
@@ -107,14 +109,14 @@ describe("TypedArray", () => {
 	test("Int8Array", () => {
 		const value = new Int8Array([1, 2, 3]);
 		const str = stringify(value);
-		const deserialized = parse<Int8Array>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toEqual(value);
 	});
 
 	test("BigInt64Array", () => {
 		const value = new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]);
 		const str = stringify(value);
-		const deserialized = parse<BigInt64Array>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toEqual(value);
 	});
 });
@@ -122,8 +124,10 @@ describe("TypedArray", () => {
 test("undefined", () => {
 	const value = undefined;
 	const str = stringify(value);
+
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-	const deserialized = parse<undefined>(str);
+	const deserialized = parse(str);
+
 	expect(deserialized).toBe(value);
 });
 
@@ -131,21 +135,21 @@ describe("number", () => {
 	test("Infinity", () => {
 		const value = Infinity;
 		const str = stringify(value);
-		const deserialized = parse<number>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toBe(value);
 	});
 
 	test("-Infinity", () => {
 		const value = -Infinity;
 		const str = stringify(value);
-		const deserialized = parse<number>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toBe(value);
 	});
 
 	test("-0", () => {
 		const value = -0;
 		const str = stringify(value);
-		const deserialized = parse<number>(str);
+		const deserialized = parse(str);
 		expect(deserialized).toBe(value);
 	});
 });

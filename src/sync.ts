@@ -375,11 +375,11 @@ export function deserializeSync<T>(
 export interface ParseSyncOptions {
 	deserializers?: DeserializerRecord;
 }
+
 export function parseSync<T>(
-	value: Typed<string, T>,
+	value: string | Typed<string, T>,
 	options?: ParseSyncOptions,
-): T;
-export function parseSync<T>(value: string, options?: ParseSyncOptions) {
+): T {
 	const json = JSON.parse(value) as SerializeReturn;
 	return deserializeSync<T>({
 		...options,
