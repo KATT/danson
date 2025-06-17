@@ -23,7 +23,6 @@ const source = () => ({
 		return "hello promise";
 	})(),
 });
-type Source = ReturnType<typeof source>;
 
 async function main() {
 	{
@@ -32,7 +31,7 @@ async function main() {
 			serializers: std.serializers,
 		});
 
-		const obj = await parseAsync<Source>(iterator, {
+		const obj = await parseAsync(iterator, {
 			deserializers: std.deserializers,
 		});
 
@@ -65,7 +64,7 @@ async function main() {
 		});
 		console.dir(JSON.parse(stringified), { depth: null });
 
-		const parsed = parseSync<typeof obj>(stringified, {
+		const parsed = parseSync(stringified, {
 			deserializers: std.deserializers,
 		});
 
