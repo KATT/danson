@@ -50,6 +50,12 @@ type ChunkStatus = Branded<number, "chunkStatus">;
 
 export interface SerializeAsyncOptions
 	extends Omit<SerializeOptions, "internal"> {
+	/**
+	 * If an error is encountered when serializing e.g. a rejected `Promise`, we use this function to coerce it to a value that can be serialized.
+	 *
+	 * If no function is provided, the error will be thrown.
+	 * @default undefined
+	 */
 	coerceError?: (cause: unknown) => unknown;
 }
 

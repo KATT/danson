@@ -269,7 +269,7 @@ const deserialized = await deserializeAsync(serialized, {
 
 ### Using Built-in Serializers
 
-The `std.ts` module provides built-in serializers for common JavaScript types. These are automatically available when using `stringifySync` and `parseSync`:
+The `std` module provides built-in serializers for common JavaScript types.
 
 ```ts
 import { parseSync, std, stringifySync } from "danson";
@@ -313,6 +313,13 @@ const stringified = stringifySync(value, {
 			}
 			return false;
 		},
+	},
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers, // use the built-in deserializers (optional)
+		MyCustomType: (value) => new MyCustomType(value),
 	},
 });
 ```

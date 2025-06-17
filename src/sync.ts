@@ -243,8 +243,6 @@ export interface SerializeInternalOptions {
 }
 
 export interface SerializeOptions {
-	coerceError?: (cause: unknown) => unknown;
-
 	/**
 	 * Dedupe values.
 	 *
@@ -263,13 +261,17 @@ export interface SerializeOptions {
 }
 
 export interface StringifyOptions extends SerializeOptions {
+	/**
+	 * The number of spaces to use for indentation.
+	 * @default undefined
+	 */
 	space?: number | string;
 }
 
 /**
  * Serializes a value into a JSON string stream.
  * @param value The value to serialize
- * @param options Serialization options
+ * @param options options
  * @returns An async iterable that yields JSON string chunks
  */
 export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
