@@ -183,15 +183,14 @@ export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
 		}
 	}
 
-	async function* inner(): AsyncIterable<SerializeAsyncYield, void> {
+	// The inner function is necessary to be able to coerce the return type
+	return (async function* (): AsyncIterable<SerializeAsyncYield, void> {
 		yield serialize(value);
 
 		for await (const item of mergedIterables) {
 			yield item;
 		}
-	}
-
-	return inner() as SerializedAsyncIterable<SerializeAsyncYield, T>;
+	})() as SerializedAsyncIterable<SerializeAsyncYield, T>;
 }
 
 export interface StringifyAsyncOptions
@@ -204,15 +203,14 @@ export function stringifyAsync<T>(
 	value: T,
 	options: StringifyAsyncOptions = {},
 ) {
-	async function* inner(): AsyncIterable<string, void> {
+	// The inner function is necessary to be able to coerce the return type
+	return (async function* (): AsyncIterable<string, void> {
 		const iterator = serializeAsync(value, options);
 
 		for await (const item of iterator) {
 			yield JSON.stringify(item, null, options.space) + "\n";
 		}
-	}
-
-	return inner() as SerializedAsyncIterable<string, T>;
+	})() as SerializedAsyncIterable<string, T>;
 }
 
 export interface DeserializeAsyncOptions
