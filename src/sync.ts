@@ -1,3 +1,4 @@
+import { DansonError } from "./error.js";
 import {
 	Branded,
 	counter,
@@ -114,7 +115,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 
 	for (const name of reservedSerializerNames) {
 		if (name in serializers) {
-			throw new Error(`${name} is a reserved serializer name`);
+			throw new DansonError(`${name} is a reserved serializer name`);
 		}
 	}
 
@@ -189,7 +190,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions
-		throw new Error(`Do not know how to serialize ${thing}`);
+		throw new DansonError(`Do not know how to serialize ${thing}`);
 	}
 
 	const indexToRefRecord: Record<Index, RefLikeString> = {};
@@ -376,7 +377,9 @@ export function deserializeSync<T>(
 				}
 				const deserializer = deserializers[refType];
 				if (!deserializer) {
-					throw new Error(`No deserializer found for serializer: ${refType}`);
+					throw new DansonError(
+						`No deserializer found for serializer: ${refType}`,
+					);
 				}
 				if (typeof deserializer === "function") {
 					return deserializer(
@@ -405,7 +408,7 @@ export function deserializeSync<T>(
 			return result;
 		}
 
-		throw new Error("Deserializing unknown value");
+		throw new DansonError("Deserializing unknown value");
 	}
 
 	const result = deserializeValue(obj.json, numberToRef(0)) as T;

@@ -4,6 +4,8 @@ export {
 	serializeAsync,
 	stringifyAsync,
 } from "./async.js";
+export { DansonError } from "./error.js";
+
 export * as std from "./std.js";
 
 export {
