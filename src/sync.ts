@@ -286,13 +286,10 @@ export interface DeserializeOptions extends SerializeReturn {
 	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
 }
-export interface TypedDeserializeOptions<T>
-	extends Typed<DeserializeOptions, T> {
-	cache?: Map<RefLikeString, unknown>;
-	deserializers?: DeserializerRecord;
-}
-export function deserializeSync<T>(options: TypedDeserializeOptions<T>): T;
-export function deserializeSync<T>(options: DeserializeOptions): T {
+export type TypedDeserializeOptions<T> = Typed<DeserializeOptions, T>;
+export function deserializeSync<T>(
+	options: DeserializeOptions | TypedDeserializeOptions<T>,
+): T {
 	const deserializers = options.deserializers ?? {};
 	const cache = options.cache ?? new Map<RefLikeString, unknown>();
 

@@ -58,11 +58,11 @@ type SerializeAsyncYield =
 
 export async function* serializeAsync(
 	value: unknown,
-	options: SerializeAsyncOptions,
+	options?: SerializeAsyncOptions,
 ) {
 	/* eslint-disable perfectionist/sort-objects */
 	const serializers: SerializeRecord = {
-		...options.serializers,
+		...options?.serializers,
 		ReadableStream(v) {
 			if (!(v instanceof ReadableStream)) {
 				return false;
@@ -175,7 +175,7 @@ export async function* serializeAsync(
 		try {
 			return serialize(cause);
 		} catch (err) {
-			if (!options.coerceError) {
+			if (!options?.coerceError) {
 				throw err;
 			}
 			return serialize(options.coerceError(cause));
