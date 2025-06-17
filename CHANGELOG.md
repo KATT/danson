@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.2](https://github.com/KATT/danson/compare/0.11.1...0.11.2) (2025-06-17)
+
+### Bug Fixes
+
+- readme update ([#11](https://github.com/KATT/danson/issues/11)) ([83e31b9](https://github.com/KATT/danson/commit/83e31b9449c57949a5ba89f64be058606b0e3787))
+
 ## [0.11.1](https://github.com/KATT/danson/compare/0.11.0...0.11.1) (2025-06-17)
 
 ### Bug Fixes
