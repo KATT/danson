@@ -191,52 +191,29 @@ for await (const chunk of stringified) {
 
 ### `stringifySync(value: unknown, options?: StringifyOptions): string`
 
-Serializes a value into a JSON string stream.
+Serializes a value into a JSON string.
 
 ### `parseSync<T>(value: string, options?: ParseOptions): T`
 
-Deserializes a JSON string or stream into a value.
+Deserializes a JSON string into a value.
 
 ### `stringifyAsync(value: unknown, options?: StringifyOptions): AsyncIterable<string, void>`
 
-Async version of `stringifySync`. Use this when you need to handle async values or want to process the stream asynchronously.
-
-```ts
-const stringified = stringifyAsync(value, {
-	serializers,
-	space: 2,
-});
-for await (const chunk of stringified) {
-	// Process chunks asynchronously
-}
-```
+Async version of `stringifySync`.
 
 #### `parseAsync<T>(value: string | AsyncIterable<string>, options?: ParseOptions): Promise<T>`
 
-Async version of `parseSync`. Use this when you need to handle async values or want to process the stream asynchronously.
+Async version of `parseSync`.
 
-```ts
-const parsed = await parseAsync(stringified, {
-	deserializers,
-});
-```
+#### `serializeSync(value: unknown, options?: StringifyOptions): SerializeReturn`
 
-#### `serializeSync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown>`
-
-Low-level function that serializes a value into an intermediate format. This is used internally by `stringifySync` but can be useful for custom serialization pipelines.
-
-```ts
-const serialized = serializeSync(value, {
-	serializers,
-});
-for await (const chunk of serialized) {
-	// Process intermediate format
-}
-```
+Serializes a value into a `JSON.stringify`-compatible format.
 
 #### `deserializeSync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
 
-Low-level function that deserializes from an intermediate format. This is used internally by `parseSync` but can be useful for custom deserialization pipelines.
+Low-level function that deserializes from an intermediate format.
+
+This is used internally by `parseSync` but can be useful for custom deserialization pipelines.
 
 ```ts
 const deserialized = await deserializeSync(serialized, {
@@ -246,7 +223,9 @@ const deserialized = await deserializeSync(serialized, {
 
 #### `serializeAsync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown>`
 
-Async version of `serializeSync`. Use this when you need to handle async values in your custom serialization pipeline.
+Async version of `serializeSync`.
+
+Use this when you need to handle async values in your custom serialization pipeline.
 
 ```ts
 const serialized = serializeAsync(value, {
@@ -259,7 +238,9 @@ for await (const chunk of serialized) {
 
 #### `deserializeAsync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
 
-Async version of `deserializeSync`. Use this when you need to handle async values in your custom deserialization pipeline.
+Async version of `deserializeSync`.
+
+Use this when you need to handle async values in your custom deserialization pipeline.
 
 ```ts
 const deserialized = await deserializeAsync(serialized, {
@@ -300,7 +281,7 @@ const parsed = parseSync(stringified, {
 
 ### Custom Serialization
 
-You can provide custom serializers for your own types:
+You can provide custom serializers for your own types.
 
 ```ts
 import { std } from "danson";
@@ -326,7 +307,9 @@ const parsed = parseSync(stringified, {
 
 #### `TransformerPair<TOriginal, TSerialized>`
 
-Type utility for defining serializer/deserializer pairs. Used internally but can be useful for type-safe custom serializers.
+Type utility for defining serializer/deserializer pairs.
+
+Used internally but can be useful for type-safe custom serializers.
 
 ```ts
 import { Temporal } from "@js-temporal/polyfill";
@@ -360,16 +343,6 @@ const stringified = stringifySync(source, {
 const result = parseSync(stringified, {
 	deserializers: {
 		"Temporal.Instant": deserializeTemporalNow,
-	},
-});
-```
-
-```ts
-import { std } from "danson";
-const parsed = parseSync(stringified, {
-	deserializers: {
-		...std.deserializers, // use the built-in deserializers (optional)
-		MyCustomType: (value) => new MyCustomType(value),
 	},
 });
 ```
