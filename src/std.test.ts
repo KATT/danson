@@ -129,6 +129,7 @@ test("undefined", () => {
 
 	const deserialized = parse(str);
 
+	expect(deserialized).toHaveProperty("foo", undefined);
 	expect(deserialized).toEqual(value);
 });
 
