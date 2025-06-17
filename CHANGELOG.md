@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.9.0](https://github.com/KATT/danson/compare/0.8.0...0.9.0) (2025-06-17)
+
+### Features
+
+- serialize `undefined` at top level ([#7](https://github.com/KATT/danson/issues/7)) ([474ae59](https://github.com/KATT/danson/commit/474ae59456174c4f7f18745da79da0210503b8bd))
+
 # [0.8.0](https://github.com/KATT/danson/compare/0.7.0...0.8.0) (2025-06-17)
 
 ### Features
