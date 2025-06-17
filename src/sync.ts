@@ -282,16 +282,17 @@ export type DeserializerRecord = Record<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	Deserialize<any, any>
 >;
-export interface DeserializeOptions extends SerializeReturn {
+export interface DeserializeOptions {
 	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
 }
 export type TypedDeserializeOptions<T> = Typed<DeserializeOptions, T>;
 export function deserializeSync<T>(
-	options: DeserializeOptions | TypedDeserializeOptions<T>,
+	obj: SerializeReturn | Typed<SerializeReturn, T>,
+	options?: DeserializeOptions,
 ): T {
-	const deserializers = options.deserializers ?? {};
-	const cache = options.cache ?? new Map<RefLikeString, unknown>();
+	const deserializers = options?.deserializers ?? {};
+	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
 
 	function getRefResult(refId: RefLikeString): unknown {
 		if (cache.has(refId)) {
@@ -299,7 +300,7 @@ export function deserializeSync<T>(
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const refValue = options.refs![refId]!;
+		const refValue = obj.refs![refId]!;
 
 		const result = deserializeValue(refValue, refId);
 		cache.set(refId, result);
@@ -367,24 +368,17 @@ export function deserializeSync<T>(
 		throw new Error("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(options.json, numberToRef(0)) as T;
+	const result = deserializeValue(obj.json, numberToRef(0)) as T;
 
 	return result;
 }
 
-export interface ParseSyncOptions {
-	deserializers?: DeserializerRecord;
-}
-
 export function parseSync<T>(
 	value: string | Typed<string, T>,
-	options?: ParseSyncOptions,
+	options?: DeserializeOptions,
 ): T {
-	const json = JSON.parse(value) as SerializeReturn;
-	return deserializeSync<T>({
-		...options,
-		...json,
-	} as TypedDeserializeOptions<T>);
+	const json = JSON.parse(value) as Typed<SerializeReturn, T>;
+	return deserializeSync<T>(json, options);
 }
 
 export interface TransformerPair<TOriginal, TSerialized> {

@@ -222,65 +222,6 @@ export async function deserializeAsync<T>(
 	>();
 	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
 
-	function createController(id: ChunkIndex) {
-		let deferred = createDeferred();
-		type Chunk = [ChunkStatus, unknown] | Error;
-		const buffer: Chunk[] = [];
-
-		async function* generator() {
-			try {
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-				while (true) {
-					await deferred.promise;
-					deferred = createDeferred();
-
-					while (buffer.length) {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						const value = buffer.shift()!;
-						if (value instanceof Error) {
-							throw value;
-						}
-						yield value;
-					}
-				}
-			} finally {
-				controllerMap.delete(id);
-			}
-		}
-
-		return {
-			generator,
-			push: (v: Chunk) => {
-				buffer.push(v);
-				deferred.resolve();
-			},
-		};
-	}
-
-	function getController(id: ChunkIndex) {
-		const c = controllerMap.get(id);
-		if (!c) {
-			const queue = createController(id);
-			controllerMap.set(id, queue);
-			return queue;
-		}
-		return c;
-	}
-
-	function cleanup(cause?: unknown) {
-		for (const [, enqueue] of controllerMap) {
-			enqueue.push(
-				cause instanceof Error
-					? cause
-					: new Error("Stream interrupted", { cause }),
-			);
-		}
-		iterator.return?.().catch(() => {
-			// prevent unhandled promise rejection warnings
-			// todo: do something?
-		});
-	}
-
 	/* eslint-disable perfectionist/sort-objects */
 	const deserializers: DeserializerRecord = {
 		...options?.deserializers,
@@ -360,14 +301,75 @@ export async function deserializeAsync<T>(
 		},
 	};
 	/* eslint-enable perfectionist/sort-objects */
+	const opts: Required<DeserializeOptions> = {
+		cache,
+		deserializers: {
+			...options?.deserializers,
+			...deserializers,
+		},
+	};
+
+	function createController(id: ChunkIndex) {
+		let deferred = createDeferred();
+		type Chunk = [ChunkStatus, unknown] | Error;
+		const buffer: Chunk[] = [];
+
+		async function* generator() {
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				while (true) {
+					await deferred.promise;
+					deferred = createDeferred();
+
+					while (buffer.length) {
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						const value = buffer.shift()!;
+						if (value instanceof Error) {
+							throw value;
+						}
+						yield value;
+					}
+				}
+			} finally {
+				controllerMap.delete(id);
+			}
+		}
+
+		return {
+			generator,
+			push: (v: Chunk) => {
+				buffer.push(v);
+				deferred.resolve();
+			},
+		};
+	}
+
+	function getController(id: ChunkIndex) {
+		const c = controllerMap.get(id);
+		if (!c) {
+			const queue = createController(id);
+			controllerMap.set(id, queue);
+			return queue;
+		}
+		return c;
+	}
+
+	function cleanup(cause?: unknown) {
+		for (const [, enqueue] of controllerMap) {
+			enqueue.push(
+				cause instanceof Error
+					? cause
+					: new Error("Stream interrupted", { cause }),
+			);
+		}
+		iterator.return?.().catch(() => {
+			// prevent unhandled promise rejection warnings
+			// todo: do something?
+		});
+	}
 
 	function deserialize<TShape>(value: SerializeReturn) {
-		return deserializeSync<TShape>({
-			...options,
-			...value,
-			cache,
-			deserializers,
-		});
+		return deserializeSync<TShape>(value, opts);
 	}
 
 	const head = (await iterator.next()) as IteratorResult<SerializeReturn, void>;

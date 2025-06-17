@@ -110,8 +110,7 @@ test("custom type with recursive references", async () => {
 		},
 	});
 
-	const result = deserializeSync<Source>({
-		...serialized,
+	const result = deserializeSync<Source>(serialized, {
 		deserializers: {
 			Node: {
 				create: () => new Node("", []),

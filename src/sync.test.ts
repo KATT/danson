@@ -174,8 +174,7 @@ test("custom simple type", () => {
 
 	expect(meta.refs).toBeUndefined();
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -219,8 +218,7 @@ test("map", () => {
 
 	expect(meta.refs).toBeUndefined();
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -275,8 +273,7 @@ test("custom complex type with self reference", () => {
 		}
 	`);
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -302,8 +299,7 @@ test("special handling - ref-like strings", () => {
 		}
 	`);
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -385,7 +381,9 @@ test("serialize/deserialize undefined", () => {
 	`);
 
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-	const result = deserializeSync<typeof source>({ ...obj, deserializers });
+	const result = deserializeSync<typeof source>(obj, {
+		deserializers,
+	});
 	expect(result).toEqual(source);
 });
 
