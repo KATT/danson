@@ -1,12 +1,22 @@
+/**
+ * Virtual property to store the original type of a serialized value.
+ * @internal
+ */
 export const TYPE_SYMBOL = Symbol();
 
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
-export type Serialized<T, OriginalType> = T & { [TYPE_SYMBOL]: OriginalType };
+export type Serialized<T, OriginalType> = T & {
+	/**
+	 * Virtual property to store the original type of a serialized value.
+	 * @internal
+	 */
+	[TYPE_SYMBOL]: OriginalType;
+};
 
-export interface SerializedAsyncIterable<T, Type>
-	extends AsyncIterable<T, void> {
-	[TYPE_SYMBOL]: Type;
-}
+export type SerializedAsyncIterable<T, Type> = Serialized<
+	AsyncIterable<T, void>,
+	Type
+>;
 
 export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
