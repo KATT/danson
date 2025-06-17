@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import {
+	CustomValue,
 	deserializeSync,
 	numberToRef,
 	parseSync,
@@ -213,6 +214,34 @@ describe("special handling - ref-like strings", () => {
 		`);
 
 		expect(deserializeSync(serialized)).toBe(source);
+	});
+
+	test("$", () => {
+		const source = {
+			_: "$",
+			type: "BigInt" as any,
+			value: "1",
+		} satisfies CustomValue;
+
+		const serialized = serializeSync(source, {
+			serializers,
+		});
+
+		const result = deserializeSync(serialized, {
+			deserializers,
+		});
+
+		expect(result).toEqual(source);
+
+		expect(serialized).toMatchInlineSnapshot(`
+			{
+			  "json": {
+			    "_": "\\$",
+			    "type": "BigInt",
+			    "value": "1",
+			  },
+			}
+		`);
 	});
 });
 

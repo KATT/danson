@@ -163,7 +163,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		if (isJsonPrimitive(thing)) {
 			if (
 				typeof thing === "string" &&
-				(isRefLikeString(thing) || thing.startsWith("\\$"))
+				(isRefLikeString(thing) || thing.startsWith("\\$") || thing === "$")
 			) {
 				return `\\${thing}`;
 			}
