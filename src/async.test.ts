@@ -13,7 +13,6 @@ import {
 	serverResource,
 	sleep,
 	waitError,
-	withDebug,
 } from "./test.utils.js";
 
 test("serialize async iterable", async () => {
