@@ -20,6 +20,24 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 - Custom serializers / deserializers
 - De-duplication of objects (optional)
 - Circular references
+- Built-in serializers for common JavaScript types:
+  - `BigInt`
+  - `Date`
+  - `Headers`
+  - `Map`
+  - Special numbers (`-0`, `Infinity`, `-Infinity`)
+  - `RegExp`
+  - `Set`
+  - TypedArrays (`Int8Array`, `Uint8Array`, etc.)
+  - `undefined`
+  - `URL`
+  - `URLSearchParams`
+
+## Installation
+
+```shell
+npm install danson
+```
 
 ## Examples
 
@@ -169,13 +187,185 @@ for await (const chunk of stringified) {
 <!-- eslint-enable -->
 <!-- prettier-ignore-end -->
 
-## Installation
+## API Reference
 
-```shell
-npm install danson
+### `stringifySync(value: unknown, options?: StringifyOptions): string`
+
+Serializes a value into a JSON string stream.
+
+### `parseSync<T>(value: string, options?: ParseOptions): T`
+
+Deserializes a JSON string or stream into a value.
+
+### `stringifyAsync(value: unknown, options?: StringifyOptions): AsyncIterable<string, void>`
+
+Async version of `stringifySync`. Use this when you need to handle async values or want to process the stream asynchronously.
+
+```ts
+const stringified = stringifyAsync(value, {
+	serializers,
+	space: 2,
+});
+for await (const chunk of stringified) {
+	// Process chunks asynchronously
+}
 ```
 
-## Usage
+#### `parseAsync<T>(value: string | AsyncIterable<string>, options?: ParseOptions): Promise<T>`
+
+Async version of `parseSync`. Use this when you need to handle async values or want to process the stream asynchronously.
+
+```ts
+const parsed = await parseAsync(stringified, {
+	deserializers,
+});
+```
+
+#### `serializeSync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown>`
+
+Low-level function that serializes a value into an intermediate format. This is used internally by `stringifySync` but can be useful for custom serialization pipelines.
+
+```ts
+const serialized = serializeSync(value, {
+	serializers,
+});
+for await (const chunk of serialized) {
+	// Process intermediate format
+}
+```
+
+#### `deserializeSync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
+
+Low-level function that deserializes from an intermediate format. This is used internally by `parseSync` but can be useful for custom deserialization pipelines.
+
+```ts
+const deserialized = await deserializeSync(serialized, {
+	deserializers,
+});
+```
+
+#### `serializeAsync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown>`
+
+Async version of `serializeSync`. Use this when you need to handle async values in your custom serialization pipeline.
+
+```ts
+const serialized = serializeAsync(value, {
+	serializers,
+});
+for await (const chunk of serialized) {
+	// Process intermediate format asynchronously
+}
+```
+
+#### `deserializeAsync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
+
+Async version of `deserializeSync`. Use this when you need to handle async values in your custom deserialization pipeline.
+
+```ts
+const deserialized = await deserializeAsync(serialized, {
+	deserializers,
+});
+```
+
+### Using Built-in Serializers
+
+The `std.ts` module provides built-in serializers for common JavaScript types. These are automatically available when using `stringifySync` and `parseSync`:
+
+```ts
+import { parseSync, std, stringifySync } from "danson";
+
+// Using built-in serializers
+const data = {
+	date: new Date(),
+	map: new Map([["key", "value"]]),
+	set: new Set([1, 2, 3]),
+	url: new URL("https://example.com"),
+};
+
+const stringified = stringifySync(data, {
+	serializers: {
+		...std.serializers,
+		// ... your custom serializers
+	},
+	space: 2,
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers,
+		// ... your custom deserializers
+	},
+});
+```
+
+### Custom Serialization
+
+You can provide custom serializers for your own types:
+
+```ts
+import { std } from "danson";
+const stringified = stringifySync(value, {
+	serializers: {
+		...std.serializers, // use the built-in serializers (optional)
+		MyCustomType: (value) => {
+			if (value instanceof MyCustomType) {
+				return value.toJSON();
+			}
+			return false;
+		},
+	},
+});
+```
+
+#### `TransformerPair<TOriginal, TSerialized>`
+
+Type utility for defining serializer/deserializer pairs. Used internally but can be useful for type-safe custom serializers.
+
+```ts
+import { Temporal } from "@js-temporal/polyfill";
+import { TransformerPair } from "danson";
+
+// Define a type-safe transformer pair for Temporal.Instant
+type TemporalNow = TransformerPair<Temporal.Instant, string>;
+
+const serializeTemporalNow: TemporalNow["serialize"] = (value) => {
+	if (value instanceof Temporal.Instant) {
+		return value.toJSON();
+	}
+	return false;
+};
+
+const deserializeTemporalNow: TemporalNow["deserialize"] = (value) => {
+	return Temporal.Instant.from(value);
+};
+
+// Use the transformer pair
+const source = {
+	instant: Temporal.Now.instant(),
+};
+
+const stringified = stringifySync(source, {
+	serializers: {
+		"Temporal.Instant": serializeTemporalNow,
+	},
+});
+
+const result = parseSync(stringified, {
+	deserializers: {
+		"Temporal.Instant": deserializeTemporalNow,
+	},
+});
+```
+
+```ts
+import { std } from "danson";
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers, // use the built-in deserializers (optional)
+		MyCustomType: (value) => new MyCustomType(value),
+	},
+});
+```
 
 ## Contributors
 

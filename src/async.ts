@@ -61,6 +61,14 @@ export type SerializeAsyncYield =
 	// First chunk
 	| SerializeReturn;
 
+/**
+ * Serializes a value into an intermediate format asynchronously.
+ * This is a low-level function used internally by `stringifyAsync` but can be useful for custom serialization pipelines.
+ * Handles async values like Promises, AsyncIterables, and ReadableStreams.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An async iterable that yields serialized chunks
+ */
 export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
 	/* eslint-disable perfectionist/sort-objects */
 	const serializers: SerializeRecord = {
@@ -199,6 +207,13 @@ export interface StringifyAsyncOptions
 	//
 }
 
+/**
+ * Serializes a value into a JSON string stream asynchronously.
+ * Use this when you need to handle async values or want to process the stream asynchronously.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An async iterable that yields JSON string chunks
+ */
 export function stringifyAsync<T>(
 	value: T,
 	options: StringifyAsyncOptions = {},
@@ -218,6 +233,13 @@ export interface DeserializeAsyncOptions
 	deserializers?: DeserializerRecord;
 }
 
+/**
+ * Deserializes from an intermediate format asynchronously.
+ * This is a low-level function used internally by `parseAsync` but can be useful for custom deserialization pipelines.
+ * @param iterable The async iterable of serialized chunks to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
 export async function deserializeAsync<T>(
 	iterable:
 		| AsyncIterable<SerializeAsyncYield, void>
@@ -410,6 +432,13 @@ export async function deserializeAsync<T>(
 	return headValue;
 }
 
+/**
+ * Deserializes a JSON string or stream into a value asynchronously.
+ * Use this when you need to handle async values or want to process the stream asynchronously.
+ * @param value The async iterable of JSON strings to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
 export function parseAsync<T>(
 	value: AsyncIterable<string, void> | SerializedAsyncIterable<string, T>,
 	options?: DeserializeAsyncOptions,

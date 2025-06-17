@@ -78,6 +78,13 @@ function isSubPath(path: Path, subPath: Path): boolean {
 	return true;
 }
 
+/**
+ * Serializes a value into an intermediate format.
+ * This is a low-level function used internally by `stringifySync` but can be useful for custom serialization pipelines.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An object containing the serialized JSON and any references
+ */
 export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
@@ -259,6 +266,12 @@ export interface StringifyOptions extends SerializeOptions {
 	space?: number | string;
 }
 
+/**
+ * Serializes a value into a JSON string stream.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An async iterable that yields JSON string chunks
+ */
 export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
 	const result = serializeSync(value, options);
 
@@ -287,6 +300,14 @@ export interface DeserializeOptions {
 	deserializers?: DeserializerRecord;
 }
 export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
+
+/**
+ * Deserializes from an intermediate format.
+ * This is a low-level function used internally by `parseSync` but can be useful for custom deserialization pipelines.
+ * @param obj The serialized object to deserialize
+ * @param options Deserialization options
+ * @returns The deserialized value
+ */
 export function deserializeSync<T>(
 	obj: Serialized<SerializeReturn, T> | SerializeReturn,
 	options?: DeserializeOptions,
@@ -373,6 +394,12 @@ export function deserializeSync<T>(
 	return result;
 }
 
+/**
+ * Deserializes a JSON string or stream into a value.
+ * @param value The JSON string or stream to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
 export function parseSync<T>(
 	value: Serialized<string, T> | string,
 	options?: DeserializeOptions,
