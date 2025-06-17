@@ -1,10 +1,10 @@
 import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
+	DeserializeInternalOptions,
 	DeserializeOptions,
 	DeserializerRecord,
 	deserializeSync,
-	RefLikeString,
 	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeRecord,
@@ -234,7 +234,7 @@ export function stringifyAsync<T>(
 	})() as SerializedAsyncIterable<string, T>;
 }
 
-export type DeserializeAsyncOptions = DeserializeOptions;
+export type DeserializeAsyncOptions = Omit<DeserializeOptions, "internal">;
 
 /**
  * Deserializes from an intermediate format asynchronously.
@@ -247,18 +247,20 @@ export async function deserializeAsync<T>(
 	iterable:
 		| AsyncIterable<SerializeAsyncYield, void>
 		| SerializedAsyncIterable<SerializeAsyncYield, T>,
-	options?: DeserializeAsyncOptions,
+	options: DeserializeAsyncOptions = {},
 ): Promise<T> {
 	const iterator = iterable[Symbol.asyncIterator]();
 	const controllerMap = new Map<
 		ChunkIndex,
 		ReturnType<typeof createController>
 	>();
-	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
+	const internal: DeserializeInternalOptions = {
+		cache: new Map(),
+	};
 
 	/* eslint-disable perfectionist/sort-objects */
 	const deserializers: DeserializerRecord = {
-		...options?.deserializers,
+		...options.deserializers,
 
 		ReadableStream(idx) {
 			const c = getController(idx as ChunkIndex);
@@ -336,11 +338,11 @@ export async function deserializeAsync<T>(
 	};
 	/* eslint-enable perfectionist/sort-objects */
 	const opts: Required<DeserializeOptions> = {
-		cache,
 		deserializers: {
-			...options?.deserializers,
+			...options.deserializers,
 			...deserializers,
 		},
+		internal,
 	};
 
 	function createController(id: ChunkIndex) {
@@ -444,7 +446,7 @@ export async function deserializeAsync<T>(
  */
 export function parseAsync<T>(
 	value: AsyncIterable<string, void> | SerializedAsyncIterable<string, T>,
-	options?: DeserializeAsyncOptions,
+	options: DeserializeAsyncOptions = {},
 ): Promise<T> {
 	return deserializeAsync(jsonAggregator(value), options);
 }

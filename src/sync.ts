@@ -254,6 +254,7 @@ export interface SerializeOptions {
 	dedupe?: ((value: unknown) => boolean) | boolean;
 
 	/**
+	 * Internal options that we use when doing async serialization.
 	 * @private
 	 */
 	internal?: SerializeInternalOptions;
@@ -270,8 +271,6 @@ export interface StringifyOptions extends SerializeOptions {
 
 /**
  * Serializes a value into a JSON string stream.
- * @param value The value to serialize
- * @param options options
  * @returns An async iterable that yields JSON string chunks
  */
 export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
@@ -297,9 +296,18 @@ export type DeserializerRecord = Record<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	Deserialize<any, any>
 >;
+
+export interface DeserializeInternalOptions {
+	cache: Map<RefLikeString, unknown>;
+}
 export interface DeserializeOptions {
-	cache?: Map<RefLikeString, unknown>;
 	deserializers?: DeserializerRecord;
+
+	/**
+	 * Internal options that we use when doing async deserialization.
+	 * @private
+	 */
+	internal?: DeserializeInternalOptions;
 }
 export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
 
@@ -312,10 +320,10 @@ export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
  */
 export function deserializeSync<T>(
 	obj: Serialized<SerializeReturn, T> | SerializeReturn,
-	options?: DeserializeOptions,
+	options: DeserializeOptions = {},
 ): T {
-	const deserializers = options?.deserializers ?? {};
-	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
+	const deserializers = options.deserializers ?? {};
+	const cache = options.internal?.cache ?? new Map<RefLikeString, unknown>();
 
 	function getRefResult(refId: RefLikeString): unknown {
 		if (cache.has(refId)) {
@@ -404,7 +412,7 @@ export function deserializeSync<T>(
  */
 export function parseSync<T>(
 	value: Serialized<string, T> | string,
-	options?: DeserializeOptions,
+	options: DeserializeOptions = {},
 ): T {
 	const json = JSON.parse(value) as Serialized<SerializeReturn, T>;
 	return deserializeSync<T>(json, options);
