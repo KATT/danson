@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.10.0](https://github.com/KATT/danson/compare/0.9.0...0.10.0) (2025-06-17)
+
+### Features
+
+- all errors are `DansonError`s ([#8](https://github.com/KATT/danson/issues/8)) ([1b4ba3a](https://github.com/KATT/danson/commit/1b4ba3a30552e90995286d04c5f2382f58fec4d9))
+
 # [0.9.0](https://github.com/KATT/danson/compare/0.8.0...0.9.0) (2025-06-17)
 
 ### Features
