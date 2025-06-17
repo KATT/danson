@@ -39,6 +39,99 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 npm install danson
 ```
 
+## Usage
+
+### Synchronous Usage
+
+```ts
+import { parseSync, stringifySync } from "danson";
+
+const data = {
+	foo: "bar",
+};
+
+const stringified = stringifySync(data);
+
+const parsed = parseSync(stringified);
+
+console.log(parsed); // { foo: "bar" }
+```
+
+### Asynchronous Usage
+
+```ts
+const data = {
+	promise: (async () => {
+		await sleep(1000);
+		return "hello promise";
+	})(),
+};
+
+const stringified = stringifyAsync(data);
+
+const parsed = await parseAsync(stringified);
+//      ^? { promise: Promise<string> }
+
+console.log(await parsed.promise); // "hello promise"
+```
+
+### Built-in Serializers
+
+The `std` module provides built-in serializers for common JavaScript types.
+
+```ts
+import { parseSync, std, stringifySync } from "danson";
+
+// Using built-in serializers
+const data = {
+	date: new Date(),
+	map: new Map([["key", "value"]]),
+	set: new Set([1, 2, 3]),
+	url: new URL("https://example.com"),
+};
+
+const stringified = stringifySync(data, {
+	serializers: {
+		...std.serializers,
+		// ... your custom serializers
+	},
+	space: 2,
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers,
+		// ... your custom deserializers
+	},
+});
+```
+
+### Custom Serialization
+
+You can provide custom serializers for your own types.
+
+```ts
+import { std } from "danson";
+const stringified = stringifySync(value, {
+	serializers: {
+		...std.serializers, // use the built-in serializers (optional)
+		MyCustomType: (value) => {
+			if (value instanceof MyCustomType) {
+				return value.toJSON();
+			}
+			return false;
+		},
+	},
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers, // use the built-in deserializers (optional)
+		MyCustomType: (value) => new MyCustomType(value),
+	},
+});
+```
+
 ## Examples
 
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
@@ -150,62 +243,6 @@ for await (const chunk of stringified) {
 ```
 
 
-### Using Built-in Serializers
-
-The `std` module provides built-in serializers for common JavaScript types.
-
-```ts
-import { parseSync, std, stringifySync } from "danson";
-
-// Using built-in serializers
-const data = {
-	date: new Date(),
-	map: new Map([["key", "value"]]),
-	set: new Set([1, 2, 3]),
-	url: new URL("https://example.com"),
-};
-
-const stringified = stringifySync(data, {
-	serializers: {
-		...std.serializers,
-		// ... your custom serializers
-	},
-	space: 2,
-});
-
-const parsed = parseSync(stringified, {
-	deserializers: {
-		...std.deserializers,
-		// ... your custom deserializers
-	},
-});
-```
-
-### Custom Serialization
-
-You can provide custom serializers for your own types.
-
-```ts
-import { std } from "danson";
-const stringified = stringifySync(value, {
-	serializers: {
-		...std.serializers, // use the built-in serializers (optional)
-		MyCustomType: (value) => {
-			if (value instanceof MyCustomType) {
-				return value.toJSON();
-			}
-			return false;
-		},
-	},
-});
-
-const parsed = parseSync(stringified, {
-	deserializers: {
-		...std.deserializers, // use the built-in deserializers (optional)
-		MyCustomType: (value) => new MyCustomType(value),
-	},
-});
-```
 
 #### `TransformerPair<TOriginal, TSerialized>`
 
