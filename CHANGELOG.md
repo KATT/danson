@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.1](https://github.com/KATT/danson/compare/0.11.0...0.11.1) (2025-06-17)
+
+### Bug Fixes
+
+- serialize `$` ([#10](https://github.com/KATT/danson/issues/10)) ([7fd1901](https://github.com/KATT/danson/commit/7fd19016be815de33dc5ff6f0330859ad9f8662c))
+
 # [0.11.0](https://github.com/KATT/danson/compare/0.10.0...0.11.0) (2025-06-17)
 
 ### Features
