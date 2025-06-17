@@ -161,13 +161,11 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
-			if (isRefLikeString(thing)) {
-				const value: CustomValue = {
-					_: "$",
-					type: "string" as SerializeRecordKey,
-					value: thing,
-				};
-				return value;
+			if (
+				typeof thing === "string" &&
+				(isRefLikeString(thing) || thing.startsWith("\\$"))
+			) {
+				return `\\${thing}`;
 			}
 
 			return thing;
@@ -354,6 +352,12 @@ export function deserializeSync<T>(
 			return getRefResult(value);
 		}
 		if (isJsonPrimitive(value)) {
+			if (
+				typeof value === "string" &&
+				(value.startsWith("\\$") || value.startsWith("\\\\$"))
+			) {
+				return value.slice(1);
+			}
 			return value;
 		}
 
