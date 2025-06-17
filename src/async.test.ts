@@ -1,9 +1,10 @@
-import { expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import {
 	deserializeAsync,
 	parseAsync,
 	serializeAsync,
+	SerializeAsyncYield,
 	stringifyAsync,
 } from "./async.js";
 import { deserializers, serializers } from "./std.js";
@@ -47,14 +48,12 @@ test("serialize async iterable", async () => {
 		        "value": 2,
 		      },
 		    },
-		    "refs": undefined,
 		  },
 		  [
 		    1,
 		    0,
 		    {
 		      "json": 1,
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -62,7 +61,6 @@ test("serialize async iterable", async () => {
 		    0,
 		    {
 		      "json": "a",
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -73,7 +71,6 @@ test("serialize async iterable", async () => {
 		        "_": "$",
 		        "type": "undefined",
 		      },
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -84,7 +81,6 @@ test("serialize async iterable", async () => {
 		        "_": "$",
 		        "type": "undefined",
 		      },
-		      "refs": undefined,
 		    },
 		  ],
 		]
@@ -667,4 +663,55 @@ test("custom type", async () => {
 		expect(aggregate.ok).toBe(true);
 		expect(aggregate.items).toEqual([new Vector(1, 2), new Vector(3, 4)]);
 	}
+});
+
+describe("magic types", () => {
+	test("stringify + parse", async () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifyAsync(source);
+
+		const result = await parseAsync(str);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("serialize + deserialize", async () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeAsync(source);
+		const result = await deserializeAsync(obj);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual stringify + parse", async () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifyAsync(source);
+		const result = await parseAsync<typeof source>(
+			str as AsyncIterable<string>,
+		);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual serialize + deserialize", async () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeAsync(source);
+		const result = await deserializeAsync<typeof source>(
+			obj as AsyncIterable<SerializeAsyncYield, void>,
+		);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
 });

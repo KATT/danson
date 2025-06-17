@@ -1,18 +1,23 @@
 import { createDeferred } from "./createDeferred.js";
 import { mergeAsyncIterables } from "./mergeAsyncIterable.js";
 import {
+	DeserializeInternalOptions,
 	DeserializeOptions,
 	DeserializerRecord,
 	deserializeSync,
-	RefLikeString,
-	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeRecord,
 	SerializeReturn,
 	serializeSync,
 	StringifyOptions,
 } from "./sync.js";
-import { Branded, counter, CounterFn } from "./utils.js";
+import {
+	Branded,
+	counter,
+	CounterFn,
+	INTERNAL_OPTIONS_SYMBOL,
+	Serialized,
+} from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
 	return value as Branded<T, "chunkStatus">;
@@ -45,24 +50,37 @@ type ChunkStatus = Branded<number, "chunkStatus">;
 
 export interface SerializeAsyncOptions
 	extends Omit<SerializeOptions, "internal"> {
+	/**
+	 * If an error is encountered when serializing e.g. a rejected `Promise`, we use this function to coerce it to a value that can be serialized.
+	 *
+	 * If no function is provided, the error will be thrown.
+	 * @default undefined
+	 */
 	coerceError?: (cause: unknown) => unknown;
 }
 
 type SerializeAsyncChunk = [ChunkIndex, ChunkStatus, SerializeReturn];
 
-type SerializeAsyncYield =
+export type SerializeAsyncYield =
 	// yielded chunks
 	| SerializeAsyncChunk
 	// First chunk
 	| SerializeReturn;
 
-export async function* serializeAsync(
-	value: unknown,
-	options: SerializeAsyncOptions,
+/**
+ * Serializes a value into an intermediate format asynchronously.
+ * This is a low-level function used internally by `stringifyAsync` but can be useful for custom serialization pipelines.
+ * Handles async values like Promises, AsyncIterables, and ReadableStreams.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An async iterable that yields serialized chunks
+ */
+export function serializeAsync<T>(
+	value: T,
+	options: SerializeAsyncOptions = {},
 ) {
 	/* eslint-disable perfectionist/sort-objects */
 	const serializers: SerializeRecord = {
-		...options.serializers,
 		ReadableStream(v) {
 			if (!(v instanceof ReadableStream)) {
 				return false;
@@ -128,29 +146,27 @@ export async function* serializeAsync(
 			});
 		},
 	};
-	const internal: SerializeInternalOptions = {
-		indexCounter: counter(),
-		indexToRefRecord: {},
-		knownDuplicates: new Set(),
-		refCounter: counter(),
-	};
+	const opts = {
+		...options,
+		[INTERNAL_OPTIONS_SYMBOL]: {
+			indexCounter: counter(),
+			indexToRefRecord: {},
+			knownDuplicates: new Set(),
+			refCounter: counter(),
+		},
+		serializers: {
+			...options.serializers,
+			...serializers,
+		},
+	} satisfies SerializeOptions;
 
 	const chunkIndexCounter = counter<"chunkIndex">();
 
 	function serialize(value: unknown): SerializeReturn {
-		const result = serializeSync(value, {
-			...options,
-			internal,
-			serializers,
-		});
-		return {
-			json: result.json,
-			refs: result.refs,
-		};
+		return serializeSync(value, opts);
 	}
 
-	const mergedIterables =
-		mergeAsyncIterables<[ChunkIndex, ChunkStatus, SerializeReturn]>();
+	const mergedIterables = mergeAsyncIterables<SerializeAsyncChunk>();
 
 	function registerAsync(
 		callback: () => AsyncIterable<[ChunkStatus, SerializeReturn]>,
@@ -182,11 +198,14 @@ export async function* serializeAsync(
 		}
 	}
 
-	yield serialize(value);
+	// The inner function is necessary to be able to coerce the return type
+	return (async function* (): AsyncIterable<SerializeAsyncYield, void> {
+		yield serialize(value);
 
-	for await (const item of mergedIterables) {
-		yield item;
-	}
+		for await (const item of mergedIterables) {
+			yield item;
+		}
+	})() as Serialized<AsyncIterable<SerializeAsyncYield>, T>;
 }
 
 export interface StringifyAsyncOptions
@@ -195,95 +214,54 @@ export interface StringifyAsyncOptions
 	//
 }
 
-export async function* stringifyAsync(
-	value: unknown,
+/**
+ * Serializes a value into a JSON string stream asynchronously.
+ * Use this when you need to handle async values or want to process the stream asynchronously.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An async iterable that yields JSON string chunks
+ */
+export function stringifyAsync<T>(
+	value: T,
 	options: StringifyAsyncOptions = {},
 ) {
-	const iterator = serializeAsync(value, options);
+	// The inner function is necessary to be able to coerce the return type
+	return (async function* (): AsyncIterable<string, void> {
+		const iterator = serializeAsync(value, options);
 
-	for await (const item of iterator) {
-		yield JSON.stringify(item, null, options.space) + "\n";
-	}
+		for await (const item of iterator) {
+			yield JSON.stringify(item, null, options.space) + "\n";
+		}
+	})() as Serialized<AsyncIterable<string>, T>;
 }
 
-export interface DeserializeAsyncOptions
-	extends Omit<DeserializeOptions, keyof SerializeReturn> {
-	deserializers?: DeserializerRecord;
-}
+export type DeserializeAsyncOptions = Omit<DeserializeOptions, "internal">;
 
+/**
+ * Deserializes from an intermediate format asynchronously.
+ * This is a low-level function used internally by `parseAsync` but can be useful for custom deserialization pipelines.
+ * @param iterable The async iterable of serialized chunks to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
 export async function deserializeAsync<T>(
-	iterable: AsyncIterable<SerializeAsyncYield, void>,
-	options?: DeserializeAsyncOptions,
-) {
+	iterable:
+		| AsyncIterable<SerializeAsyncYield, void>
+		| Serialized<AsyncIterable<SerializeAsyncYield>, T>,
+	options: DeserializeAsyncOptions = {},
+): Promise<T> {
 	const iterator = iterable[Symbol.asyncIterator]();
 	const controllerMap = new Map<
 		ChunkIndex,
 		ReturnType<typeof createController>
 	>();
-	const cache = options?.cache ?? new Map<RefLikeString, unknown>();
-
-	function createController(id: ChunkIndex) {
-		let deferred = createDeferred();
-		type Chunk = [ChunkStatus, unknown] | Error;
-		const buffer: Chunk[] = [];
-
-		async function* generator() {
-			try {
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-				while (true) {
-					await deferred.promise;
-					deferred = createDeferred();
-
-					while (buffer.length) {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-						const value = buffer.shift()!;
-						if (value instanceof Error) {
-							throw value;
-						}
-						yield value;
-					}
-				}
-			} finally {
-				controllerMap.delete(id);
-			}
-		}
-
-		return {
-			generator,
-			push: (v: Chunk) => {
-				buffer.push(v);
-				deferred.resolve();
-			},
-		};
-	}
-
-	function getController(id: ChunkIndex) {
-		const c = controllerMap.get(id);
-		if (!c) {
-			const queue = createController(id);
-			controllerMap.set(id, queue);
-			return queue;
-		}
-		return c;
-	}
-
-	function cleanup(cause?: unknown) {
-		for (const [, enqueue] of controllerMap) {
-			enqueue.push(
-				cause instanceof Error
-					? cause
-					: new Error("Stream interrupted", { cause }),
-			);
-		}
-		iterator.return?.().catch(() => {
-			// prevent unhandled promise rejection warnings
-			// todo: do something?
-		});
-	}
+	const internal: DeserializeInternalOptions = {
+		cache: new Map(),
+	};
 
 	/* eslint-disable perfectionist/sort-objects */
 	const deserializers: DeserializerRecord = {
-		...options?.deserializers,
+		...options.deserializers,
 
 		ReadableStream(idx) {
 			const c = getController(idx as ChunkIndex);
@@ -360,14 +338,75 @@ export async function deserializeAsync<T>(
 		},
 	};
 	/* eslint-enable perfectionist/sort-objects */
+	const opts: Required<DeserializeOptions> = {
+		deserializers: {
+			...options.deserializers,
+			...deserializers,
+		},
+		internal,
+	};
+
+	function createController(id: ChunkIndex) {
+		let deferred = createDeferred();
+		type Chunk = [ChunkStatus, unknown] | Error;
+		const buffer: Chunk[] = [];
+
+		async function* generator() {
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+				while (true) {
+					await deferred.promise;
+					deferred = createDeferred();
+
+					while (buffer.length) {
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+						const value = buffer.shift()!;
+						if (value instanceof Error) {
+							throw value;
+						}
+						yield value;
+					}
+				}
+			} finally {
+				controllerMap.delete(id);
+			}
+		}
+
+		return {
+			generator,
+			push: (v: Chunk) => {
+				buffer.push(v);
+				deferred.resolve();
+			},
+		};
+	}
+
+	function getController(id: ChunkIndex) {
+		const c = controllerMap.get(id);
+		if (!c) {
+			const queue = createController(id);
+			controllerMap.set(id, queue);
+			return queue;
+		}
+		return c;
+	}
+
+	function cleanup(cause?: unknown) {
+		for (const [, enqueue] of controllerMap) {
+			enqueue.push(
+				cause instanceof Error
+					? cause
+					: new Error("Stream interrupted", { cause }),
+			);
+		}
+		iterator.return?.().catch(() => {
+			// prevent unhandled promise rejection warnings
+			// todo: do something?
+		});
+	}
 
 	function deserialize<TShape>(value: SerializeReturn) {
-		return deserializeSync<TShape>({
-			...options,
-			...value,
-			cache,
-			deserializers,
-		});
+		return deserializeSync<TShape>(value, opts);
 	}
 
 	const head = (await iterator.next()) as IteratorResult<SerializeReturn, void>;
@@ -399,9 +438,16 @@ export async function deserializeAsync<T>(
 	return headValue;
 }
 
+/**
+ * Deserializes a JSON stream into a value asynchronously.
+ * Use this when you need to handle async values or want to process the stream asynchronously.
+ * @param value The async iterable of JSON strings to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
 export function parseAsync<T>(
-	value: AsyncIterable<string, void>,
-	options?: DeserializeAsyncOptions,
+	value: AsyncIterable<string, void> | Serialized<AsyncIterable<string>, T>,
+	options: DeserializeAsyncOptions = {},
 ): Promise<T> {
 	return deserializeAsync(jsonAggregator(value), options);
 }

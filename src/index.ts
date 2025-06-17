@@ -13,3 +13,5 @@ export {
 	stringifySync,
 	type TransformerPair,
 } from "./sync.js";
+
+export { type TYPE_SYMBOL as __internal__TYPE_SYMBOL } from "./utils.js";

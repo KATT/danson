@@ -1,4 +1,29 @@
+/**
+ * Virtual property to store the original type of a serialized value.
+ * @internal
+ */
+export const TYPE_SYMBOL = Symbol();
+
+/**
+ * Symbol to store the internal options of a serialized value.
+ * @internal
+ */
+export const INTERNAL_OPTIONS_SYMBOL = Symbol();
+
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
+
+/**
+ * Type to mark a value as serialized.
+ *
+ * Returns the original type with a virtual property to store the original type.
+ */
+export type Serialized<T, OriginalType> = T & {
+	/**
+	 * Virtual property to store the original type of a serialized value.
+	 * @internal
+	 */
+	[TYPE_SYMBOL]: OriginalType;
+};
 
 export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
@@ -17,8 +42,8 @@ export function counter<T extends string>(): CounterFn<T> {
 	};
 }
 
-export function isJsonPrimitive(thing: unknown): thing is JsonPrimitive {
-	const type = typeof thing;
+export function isJsonPrimitive(value: unknown): value is JsonPrimitive {
+	const type = typeof value;
 	return type === "boolean" || type === "number" || type === "string";
 }
 

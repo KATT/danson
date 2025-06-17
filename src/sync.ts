@@ -2,21 +2,23 @@ import {
 	Branded,
 	counter,
 	CounterFn,
+	INTERNAL_OPTIONS_SYMBOL,
 	isJsonPrimitive,
 	isPlainObject,
 	JsonArray,
 	JsonObject,
 	JsonValue,
+	Serialized,
 } from "./utils.js";
 
 export type RefLikeString<TNumber extends number = number> = `$${TNumber}`;
 
-function isRefLikeString(thing: unknown): thing is RefLikeString {
-	if (typeof thing !== "string" || thing.length < 2 || !thing.startsWith("$")) {
+function isRefLikeString(value: unknown): value is RefLikeString {
+	if (typeof value !== "string" || value.length < 2 || !value.startsWith("$")) {
 		return false;
 	}
-	for (let i = 1; i < thing.length; i++) {
-		const char = thing.charCodeAt(i);
+	for (let i = 1; i < value.length; i++) {
+		const char = value.charCodeAt(i);
 		// not 0-9
 		if (char < 48 || char > 57) {
 			return false;
@@ -77,14 +79,23 @@ function isSubPath(path: Path, subPath: Path): boolean {
 	return true;
 }
 
-export function serializeSync(value: unknown, options: SerializeOptions = {}) {
+/**
+ * Serializes a value into an intermediate format.
+ * This is a low-level function used internally by `stringifySync` but can be useful for custom serialization pipelines.
+ * @param value The value to serialize
+ * @param options Serialization options
+ * @returns An object containing the serialized JSON and any references
+ */
+export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
 	const values = new Map<unknown, [Index, Location, Path]>();
 	const refs: RefRecord = {};
 	const replaceMap = new Map<RefLikeString, Location>();
 
-	const internal: SerializeInternalOptions = options.internal ?? {
+	const internal: SerializeInternalOptions = options[
+		INTERNAL_OPTIONS_SYMBOL
+	] ?? {
 		indexCounter: counter(),
 		indexToRefRecord: {},
 		knownDuplicates: new Set(),
@@ -219,7 +230,7 @@ export function serializeSync(value: unknown, options: SerializeOptions = {}) {
 		result.refs = refs;
 	}
 
-	return result;
+	return result as Serialized<SerializeReturn, T>;
 }
 
 export interface SerializeReturn {
@@ -235,8 +246,6 @@ export interface SerializeInternalOptions {
 }
 
 export interface SerializeOptions {
-	coerceError?: (cause: unknown) => unknown;
-
 	/**
 	 * Dedupe values.
 	 *
@@ -248,20 +257,29 @@ export interface SerializeOptions {
 	dedupe?: ((value: unknown) => boolean) | boolean;
 
 	/**
+	 * Internal options that we use when doing async serialization.
 	 * @private
 	 */
-	internal?: SerializeInternalOptions;
+	[INTERNAL_OPTIONS_SYMBOL]?: SerializeInternalOptions;
 	serializers?: SerializeRecord;
 }
 
 export interface StringifyOptions extends SerializeOptions {
+	/**
+	 * The number of spaces to use for indentation.
+	 * @default undefined
+	 */
 	space?: number | string;
 }
 
-export function stringifySync(value: unknown, options: StringifyOptions = {}) {
+/**
+ * Serializes a value into a JSON string stream.
+ * @returns An async iterable that yields JSON string chunks
+ */
+export function stringifySync<T>(value: T, options: StringifyOptions = {}) {
 	const result = serializeSync(value, options);
 
-	return JSON.stringify(result, null, options.space);
+	return JSON.stringify(result, null, options.space) as Serialized<string, T>;
 }
 
 export type DeserializerFn<TOriginal, TSerialized> = (
@@ -281,13 +299,34 @@ export type DeserializerRecord = Record<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	Deserialize<any, any>
 >;
-export interface DeserializeOptions extends SerializeReturn {
-	cache?: Map<RefLikeString, unknown>;
-	deserializers?: DeserializerRecord;
+
+export interface DeserializeInternalOptions {
+	cache: Map<RefLikeString, unknown>;
 }
-export function deserializeSync<T>(options: DeserializeOptions): T {
+export interface DeserializeOptions {
+	deserializers?: DeserializerRecord;
+
+	/**
+	 * Internal options that we use when doing async deserialization.
+	 * @private
+	 */
+	internal?: DeserializeInternalOptions;
+}
+export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
+
+/**
+ * Deserializes from an intermediate format.
+ * This is a low-level function used internally by `parseSync` but can be useful for custom deserialization pipelines.
+ * @param obj The serialized object to deserialize
+ * @param options Deserialization options
+ * @returns The deserialized value
+ */
+export function deserializeSync<T>(
+	obj: Serialized<SerializeReturn, T> | SerializeReturn,
+	options: DeserializeOptions = {},
+): T {
 	const deserializers = options.deserializers ?? {};
-	const cache = options.cache ?? new Map<RefLikeString, unknown>();
+	const cache = options.internal?.cache ?? new Map<RefLikeString, unknown>();
 
 	function getRefResult(refId: RefLikeString): unknown {
 		if (cache.has(refId)) {
@@ -295,7 +334,7 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const refValue = options.refs![refId]!;
+		const refValue = obj.refs![refId]!;
 
 		const result = deserializeValue(refValue, refId);
 		cache.set(refId, result);
@@ -363,20 +402,23 @@ export function deserializeSync<T>(options: DeserializeOptions): T {
 		throw new Error("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(options.json, numberToRef(0)) as T;
+	const result = deserializeValue(obj.json, numberToRef(0)) as T;
 
 	return result;
 }
 
-export interface ParseSyncOptions {
-	deserializers?: DeserializerRecord;
-}
-export function parseSync<T>(value: string, options?: ParseSyncOptions) {
-	const json = JSON.parse(value) as SerializeReturn;
-	return deserializeSync<T>({
-		...options,
-		...json,
-	});
+/**
+ * Deserializes a JSON string or stream into a value.
+ * @param value The JSON string or stream to deserialize
+ * @param options Deserialization options
+ * @returns A promise that resolves to the deserialized value
+ */
+export function parseSync<T>(
+	value: Serialized<string, T> | string,
+	options: DeserializeOptions = {},
+): T {
+	const json = JSON.parse(value) as Serialized<SerializeReturn, T>;
+	return deserializeSync<T>(json, options);
 }
 
 export interface TransformerPair<TOriginal, TSerialized> {

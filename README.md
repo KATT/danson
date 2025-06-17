@@ -20,6 +20,24 @@ danSON is a progressive JSON serializer and deserializer that can serialize and 
 - Custom serializers / deserializers
 - De-duplication of objects (optional)
 - Circular references
+- Built-in serializers for common JavaScript types:
+  - `BigInt`
+  - `Date`
+  - `Headers`
+  - `Map`
+  - Special numbers (`-0`, `Infinity`, `-Infinity`)
+  - `RegExp`
+  - `Set`
+  - TypedArrays (`Int8Array`, `Uint8Array`, etc.)
+  - `undefined`
+  - `URL`
+  - `URLSearchParams`
+
+## Installation
+
+```shell
+npm install danson
+```
 
 ## Examples
 
@@ -169,16 +187,40 @@ for await (const chunk of stringified) {
 <!-- eslint-enable -->
 <!-- prettier-ignore-end -->
 
-## Installation
+## API Reference
 
-```shell
-npm install danson
-```
+### `stringifySync(value: unknown, options?: StringifyOptions): string`
 
-## Usage
+Serializes a value into a JSON string.
 
-## Contributors
+### `parseSync<T>(value: string, options?: ParseOptions): T`
 
-<!-- You can remove this notice if you don't want it 🙂 no worries! -->
+Deserializes a JSON string into a value.
 
-> 💝 This package was templated with [`create-typescript-app`](https://github.com/JoshuaKGoldberg/create-typescript-app) using the [Bingo framework](https://create.bingo).
+### `serializeSync(value: unknown, options?: StringifyOptions): SerializeReturn`
+
+Serializes a value into a `JSON.stringify`-compatible format.
+
+### `deserializeSync<T>(value: SerializeReturn, options?: ParseOptions): T`
+
+Deserializes from a `SerializeReturn` object into a value.
+
+### `stringifyAsync(value: unknown, options?: StringifyOptions): AsyncIterable<string, void>`
+
+Serializes a value into a stream of JSON strings asynchronously.
+
+### `parseAsync<T>(value: AsyncIterable<string, void>, options?: ParseOptions): Promise<T>`
+
+Deserializes a stream of JSON strings into a value asynchronously.
+
+### `serializeAsync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown, void>`
+
+Serializes a value into a stream of intermediate objects asynchronously.
+
+### `deserializeAsync<T>(value: AsyncIterable<unknown, void>, options?: ParseOptions): Promise<T>`
+
+Deserializes a stream of intermediate objects into a value asynchronously.
+
+### Using Built-in Serializers
+
+The `std`

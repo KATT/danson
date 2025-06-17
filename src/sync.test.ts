@@ -1,13 +1,15 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import {
 	deserializeSync,
 	numberToRef,
 	parseSync,
+	SerializeReturn,
 	serializeSync,
 	stringifySync,
+	TransformerPair,
 } from "./sync.js";
 
 test("string", () => {
@@ -40,7 +42,10 @@ test("object", () => {
 	expect(meta.json).toEqual(source);
 	expect(meta.refs).toBeUndefined();
 
-	expect(deserializeSync(meta)).toEqual(source);
+	const result = deserializeSync(meta);
+
+	expect(result).toEqual(source);
+	expectTypeOf(result).toEqualTypeOf<typeof source>();
 });
 
 test("object without prototype", () => {
@@ -170,8 +175,7 @@ test("custom simple type", () => {
 
 	expect(meta.refs).toBeUndefined();
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -215,8 +219,7 @@ test("map", () => {
 
 	expect(meta.refs).toBeUndefined();
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -271,8 +274,7 @@ test("custom complex type with self reference", () => {
 		}
 	`);
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -298,8 +300,7 @@ test("special handling - ref-like strings", () => {
 		}
 	`);
 
-	const result = deserializeSync<typeof source>({
-		...meta,
+	const result = deserializeSync<typeof source>(meta, {
 		deserializers,
 	});
 
@@ -342,24 +343,32 @@ test("stringify deduped object", () => {
 });
 
 test("stringify custom type", () => {
+	type TemporalNow = TransformerPair<Temporal.Instant, string>;
+
+	const serializeTemporalNow: TemporalNow["serialize"] = (value) => {
+		if (value instanceof Temporal.Instant) {
+			return value.toJSON();
+		}
+		return false;
+	};
+
+	const deserializeTemporalNow: TemporalNow["deserialize"] = (value) => {
+		return Temporal.Instant.from(value);
+	};
+
 	const source = {
 		instant: Temporal.Now.instant(),
 	};
 
 	const str = stringifySync(source, {
 		serializers: {
-			"Temporal.Instant": (value) => {
-				if (value instanceof Temporal.Instant) {
-					return value.toJSON();
-				}
-				return false;
-			},
+			"Temporal.Instant": serializeTemporalNow,
 		},
 	});
 
 	const result = parseSync(str, {
 		deserializers: {
-			"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
+			"Temporal.Instant": deserializeTemporalNow,
 		},
 	});
 	expect(result).toEqual(source);
@@ -381,6 +390,55 @@ test("serialize/deserialize undefined", () => {
 	`);
 
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-	const result = deserializeSync<typeof source>({ ...obj, deserializers });
+	const result = deserializeSync<typeof source>(obj, {
+		deserializers,
+	});
 	expect(result).toEqual(source);
+});
+
+describe("magic types", () => {
+	test("stringify + parse", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifySync(source);
+
+		const result = parseSync(str);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("serialize + deserialize", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeSync(source);
+		const result = deserializeSync(obj);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual stringify + parse", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const str = stringifySync(source);
+		const result = parseSync<typeof source>(str as string);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
+
+	test("manual serialize + deserialize", () => {
+		const source = {
+			foo: "bar",
+		};
+
+		const obj = serializeSync(source);
+		const result = deserializeSync<typeof source>(obj as SerializeReturn);
+
+		expectTypeOf(result).toEqualTypeOf<typeof source>();
+	});
 });
