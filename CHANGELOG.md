@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.11.0](https://github.com/KATT/danson/compare/0.10.0...0.11.0) (2025-06-17)
+
+### Features
+
+- nicer handling of `$`-prefixed strings ([#9](https://github.com/KATT/danson/issues/9)) ([064febd](https://github.com/KATT/danson/commit/064febd3786da1c904874609a1d77129a5b83756))
+
 # [0.10.0](https://github.com/KATT/danson/compare/0.9.0...0.10.0) (2025-06-17)
 
 ### Features
