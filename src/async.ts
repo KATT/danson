@@ -5,7 +5,6 @@ import {
 	DeserializeOptions,
 	DeserializerRecord,
 	deserializeSync,
-	SerializeInternalOptions,
 	SerializeOptions,
 	SerializeRecord,
 	SerializeReturn,
@@ -16,6 +15,7 @@ import {
 	Branded,
 	counter,
 	CounterFn,
+	INTERNAL_OPTIONS_SYMBOL,
 	SerializedAsyncIterable,
 } from "./utils.js";
 
@@ -75,10 +75,12 @@ export type SerializeAsyncYield =
  * @param options Serialization options
  * @returns An async iterable that yields serialized chunks
  */
-export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
+export function serializeAsync<T>(
+	value: T,
+	options: SerializeAsyncOptions = {},
+) {
 	/* eslint-disable perfectionist/sort-objects */
 	const serializers: SerializeRecord = {
-		...options?.serializers,
 		ReadableStream(v) {
 			if (!(v instanceof ReadableStream)) {
 				return false;
@@ -144,25 +146,24 @@ export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
 			});
 		},
 	};
-	const internal: SerializeInternalOptions = {
-		indexCounter: counter(),
-		indexToRefRecord: {},
-		knownDuplicates: new Set(),
-		refCounter: counter(),
-	};
+	const opts = {
+		...options,
+		[INTERNAL_OPTIONS_SYMBOL]: {
+			indexCounter: counter(),
+			indexToRefRecord: {},
+			knownDuplicates: new Set(),
+			refCounter: counter(),
+		},
+		serializers: {
+			...options.serializers,
+			...serializers,
+		},
+	} satisfies SerializeOptions;
 
 	const chunkIndexCounter = counter<"chunkIndex">();
 
 	function serialize(value: unknown): SerializeReturn {
-		const result = serializeSync(value, {
-			...options,
-			internal,
-			serializers,
-		});
-		return {
-			json: result.json,
-			refs: result.refs,
-		};
+		return serializeSync(value, opts);
 	}
 
 	const mergedIterables = mergeAsyncIterables<SerializeAsyncChunk>();
@@ -190,7 +191,7 @@ export function serializeAsync<T>(value: T, options?: SerializeAsyncOptions) {
 		try {
 			return serialize(cause);
 		} catch (err) {
-			if (!options?.coerceError) {
+			if (!options.coerceError) {
 				throw err;
 			}
 			return serialize(options.coerceError(cause));

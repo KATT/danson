@@ -2,6 +2,7 @@ import {
 	Branded,
 	counter,
 	CounterFn,
+	INTERNAL_OPTIONS_SYMBOL,
 	isJsonPrimitive,
 	isPlainObject,
 	JsonArray,
@@ -92,7 +93,9 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	const refs: RefRecord = {};
 	const replaceMap = new Map<RefLikeString, Location>();
 
-	const internal: SerializeInternalOptions = options.internal ?? {
+	const internal: SerializeInternalOptions = options[
+		INTERNAL_OPTIONS_SYMBOL
+	] ?? {
 		indexCounter: counter(),
 		indexToRefRecord: {},
 		knownDuplicates: new Set(),
@@ -257,7 +260,7 @@ export interface SerializeOptions {
 	 * Internal options that we use when doing async serialization.
 	 * @private
 	 */
-	internal?: SerializeInternalOptions;
+	[INTERNAL_OPTIONS_SYMBOL]?: SerializeInternalOptions;
 	serializers?: SerializeRecord;
 }
 

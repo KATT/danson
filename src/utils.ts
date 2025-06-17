@@ -4,6 +4,12 @@
  */
 export const TYPE_SYMBOL = Symbol();
 
+/**
+ * Symbol to store the internal options of a serialized value.
+ * @internal
+ */
+export const INTERNAL_OPTIONS_SYMBOL = Symbol();
+
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
 export type Serialized<T, OriginalType> = T & {
 	/**

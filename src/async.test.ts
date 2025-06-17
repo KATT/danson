@@ -48,14 +48,12 @@ test("serialize async iterable", async () => {
 		        "value": 2,
 		      },
 		    },
-		    "refs": undefined,
 		  },
 		  [
 		    1,
 		    0,
 		    {
 		      "json": 1,
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -63,7 +61,6 @@ test("serialize async iterable", async () => {
 		    0,
 		    {
 		      "json": "a",
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -74,7 +71,6 @@ test("serialize async iterable", async () => {
 		        "_": "$",
 		        "type": "undefined",
 		      },
-		      "refs": undefined,
 		    },
 		  ],
 		  [
@@ -85,7 +81,6 @@ test("serialize async iterable", async () => {
 		        "_": "$",
 		        "type": "undefined",
 		      },
-		      "refs": undefined,
 		    },
 		  ],
 		]
