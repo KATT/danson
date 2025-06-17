@@ -74,7 +74,7 @@ console.log(await parsed.promise); // "hello promise"
 
 ### Built-in Serializers
 
-The `std` module provides built-in serializers for common JavaScript types. Works with both synchronous and asynchronous usage.
+The `std` module provides built-in serializers for common JavaScript types that works with both synchronous and asynchronous usage.
 
 Supported types:
 
@@ -196,9 +196,6 @@ const result = parseSync(stringified, {
 });
 ```
 
-<!-- eslint-enable -->
-<!-- prettier-ignore-end -->
-
 ## Example outputs
 
 ### Streaming `Promise`s
@@ -235,8 +232,8 @@ for await (const chunk of stringified) {
 			"_": "$", // informs the deserializer that this is a special type
 			"type": "Promise", // it is a Promise
 			"value": 1, // index of the Promise that will come later
-		},
-	},
+		}
+	}
 }
 ```
 
@@ -245,10 +242,13 @@ for await (const chunk of stringified) {
 	1, // index of the Promise
 	0, // Promise succeeded (0 = success, 1 = failure)
 	{
-		"json": "hello promise",
-	},
+		"json": "hello promise"
+	}
 ]
 ```
+
+<!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ### Streaming `AsyncIterable`s
 
@@ -272,6 +272,9 @@ for await (const chunk of stringified) {
 }
 ```
 
+<!-- prettier-ignore-start -->
+<!-- eslint-disable -->
+
 #### AsyncIterable example output
 
 ```jsonc
@@ -281,9 +284,9 @@ for await (const chunk of stringified) {
 		"asyncIterable": {
 			"_": "$",
 			"type": "AsyncIterable",
-			"value": 0,
-		},
-	},
+			"value": 0
+		}
+	}
 }
 ```
 
@@ -292,8 +295,8 @@ for await (const chunk of stringified) {
 	0,
 	0,
 	{
-		"json": "world",
-	},
+		"json": "world"
+	}
 ]
 ```
 
@@ -302,10 +305,14 @@ for await (const chunk of stringified) {
 	0, // index of the AsyncIterable
 	2,
 	{
-		"json": "done",
-	},
+		"json": "done"
+	}
 ]
 ```
+
+
+<!-- prettier-ignore-end -->
+<!-- eslint-enable -->
 
 ## API Reference
 
