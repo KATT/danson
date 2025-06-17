@@ -197,158 +197,30 @@ Serializes a value into a JSON string.
 
 Deserializes a JSON string into a value.
 
-### `stringifyAsync(value: unknown, options?: StringifyOptions): AsyncIterable<string, void>`
-
-Async version of `stringifySync`.
-
-#### `parseAsync<T>(value: string | AsyncIterable<string>, options?: ParseOptions): Promise<T>`
-
-Async version of `parseSync`.
-
-#### `serializeSync(value: unknown, options?: StringifyOptions): SerializeReturn`
+### `serializeSync(value: unknown, options?: StringifyOptions): SerializeReturn`
 
 Serializes a value into a `JSON.stringify`-compatible format.
 
-#### `deserializeSync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
+### `deserializeSync<T>(value: SerializeReturn, options?: ParseOptions): T`
 
-Low-level function that deserializes from an intermediate format.
+Deserializes from a `SerializeReturn` object into a value.
 
-This is used internally by `parseSync` but can be useful for custom deserialization pipelines.
+### `stringifyAsync(value: unknown, options?: StringifyOptions): AsyncIterable<string, void>`
 
-```ts
-const deserialized = await deserializeSync(serialized, {
-	deserializers,
-});
-```
+Serializes a value into a stream of JSON strings asynchronously.
 
-#### `serializeAsync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown>`
+### `parseAsync<T>(value: AsyncIterable<string, void>, options?: ParseOptions): Promise<T>`
 
-Async version of `serializeSync`.
+Deserializes a stream of JSON strings into a value asynchronously.
 
-Use this when you need to handle async values in your custom serialization pipeline.
+### `serializeAsync(value: unknown, options?: StringifyOptions): AsyncIterable<unknown, void>`
 
-```ts
-const serialized = serializeAsync(value, {
-	serializers,
-});
-for await (const chunk of serialized) {
-	// Process intermediate format asynchronously
-}
-```
+Serializes a value into a stream of intermediate objects asynchronously.
 
-#### `deserializeAsync<T>(value: AsyncIterable<unknown>, options?: ParseOptions): Promise<T>`
+### `deserializeAsync<T>(value: AsyncIterable<unknown, void>, options?: ParseOptions): Promise<T>`
 
-Async version of `deserializeSync`.
-
-Use this when you need to handle async values in your custom deserialization pipeline.
-
-```ts
-const deserialized = await deserializeAsync(serialized, {
-	deserializers,
-});
-```
+Deserializes a stream of intermediate objects into a value asynchronously.
 
 ### Using Built-in Serializers
 
-The `std` module provides built-in serializers for common JavaScript types.
-
-```ts
-import { parseSync, std, stringifySync } from "danson";
-
-// Using built-in serializers
-const data = {
-	date: new Date(),
-	map: new Map([["key", "value"]]),
-	set: new Set([1, 2, 3]),
-	url: new URL("https://example.com"),
-};
-
-const stringified = stringifySync(data, {
-	serializers: {
-		...std.serializers,
-		// ... your custom serializers
-	},
-	space: 2,
-});
-
-const parsed = parseSync(stringified, {
-	deserializers: {
-		...std.deserializers,
-		// ... your custom deserializers
-	},
-});
-```
-
-### Custom Serialization
-
-You can provide custom serializers for your own types.
-
-```ts
-import { std } from "danson";
-const stringified = stringifySync(value, {
-	serializers: {
-		...std.serializers, // use the built-in serializers (optional)
-		MyCustomType: (value) => {
-			if (value instanceof MyCustomType) {
-				return value.toJSON();
-			}
-			return false;
-		},
-	},
-});
-
-const parsed = parseSync(stringified, {
-	deserializers: {
-		...std.deserializers, // use the built-in deserializers (optional)
-		MyCustomType: (value) => new MyCustomType(value),
-	},
-});
-```
-
-#### `TransformerPair<TOriginal, TSerialized>`
-
-Type utility for defining serializer/deserializer pairs.
-
-Used internally but can be useful for type-safe custom serializers.
-
-```ts
-import { Temporal } from "@js-temporal/polyfill";
-import { TransformerPair } from "danson";
-
-// Define a type-safe transformer pair for Temporal.Instant
-type TemporalNow = TransformerPair<Temporal.Instant, string>;
-
-const serializeTemporalNow: TemporalNow["serialize"] = (value) => {
-	if (value instanceof Temporal.Instant) {
-		return value.toJSON();
-	}
-	return false;
-};
-
-const deserializeTemporalNow: TemporalNow["deserialize"] = (value) => {
-	return Temporal.Instant.from(value);
-};
-
-// Use the transformer pair
-const source = {
-	instant: Temporal.Now.instant(),
-};
-
-const stringified = stringifySync(source, {
-	serializers: {
-		"Temporal.Instant": serializeTemporalNow,
-	},
-});
-
-const result = parseSync(stringified, {
-	deserializers: {
-		"Temporal.Instant": deserializeTemporalNow,
-	},
-});
-```
-
-## Contributors
-
-<!-- You can remove this notice if you don't want it 🙂 no worries! -->
-
-> 💝 This package was templated with [`create-typescript-app`](https://github.com/JoshuaKGoldberg/create-typescript-app) using the [Bingo framework](https://create.bingo).
+The `std`

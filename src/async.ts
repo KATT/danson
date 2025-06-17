@@ -16,7 +16,7 @@ import {
 	counter,
 	CounterFn,
 	INTERNAL_OPTIONS_SYMBOL,
-	SerializedAsyncIterable,
+	Serialized,
 } from "./utils.js";
 
 function chunkStatus<T extends number>(value: T): Branded<T, "chunkStatus"> {
@@ -205,7 +205,7 @@ export function serializeAsync<T>(
 		for await (const item of mergedIterables) {
 			yield item;
 		}
-	})() as SerializedAsyncIterable<SerializeAsyncYield, T>;
+	})() as Serialized<AsyncIterable<SerializeAsyncYield>, T>;
 }
 
 export interface StringifyAsyncOptions
@@ -232,7 +232,7 @@ export function stringifyAsync<T>(
 		for await (const item of iterator) {
 			yield JSON.stringify(item, null, options.space) + "\n";
 		}
-	})() as SerializedAsyncIterable<string, T>;
+	})() as Serialized<AsyncIterable<string>, T>;
 }
 
 export type DeserializeAsyncOptions = Omit<DeserializeOptions, "internal">;
@@ -247,7 +247,7 @@ export type DeserializeAsyncOptions = Omit<DeserializeOptions, "internal">;
 export async function deserializeAsync<T>(
 	iterable:
 		| AsyncIterable<SerializeAsyncYield, void>
-		| SerializedAsyncIterable<SerializeAsyncYield, T>,
+		| Serialized<AsyncIterable<SerializeAsyncYield>, T>,
 	options: DeserializeAsyncOptions = {},
 ): Promise<T> {
 	const iterator = iterable[Symbol.asyncIterator]();
@@ -439,14 +439,14 @@ export async function deserializeAsync<T>(
 }
 
 /**
- * Deserializes a JSON string or stream into a value asynchronously.
+ * Deserializes a JSON stream into a value asynchronously.
  * Use this when you need to handle async values or want to process the stream asynchronously.
  * @param value The async iterable of JSON strings to deserialize
  * @param options Deserialization options
  * @returns A promise that resolves to the deserialized value
  */
 export function parseAsync<T>(
-	value: AsyncIterable<string, void> | SerializedAsyncIterable<string, T>,
+	value: AsyncIterable<string, void> | Serialized<AsyncIterable<string>, T>,
 	options: DeserializeAsyncOptions = {},
 ): Promise<T> {
 	return deserializeAsync(jsonAggregator(value), options);

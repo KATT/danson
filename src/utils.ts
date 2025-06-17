@@ -11,6 +11,12 @@ export const TYPE_SYMBOL = Symbol();
 export const INTERNAL_OPTIONS_SYMBOL = Symbol();
 
 export type Branded<T, Brand extends string> = T & { _brand: Brand };
+
+/**
+ * Type to mark a value as serialized.
+ *
+ * Returns the original type with a virtual property to store the original type.
+ */
 export type Serialized<T, OriginalType> = T & {
 	/**
 	 * Virtual property to store the original type of a serialized value.
@@ -18,11 +24,6 @@ export type Serialized<T, OriginalType> = T & {
 	 */
 	[TYPE_SYMBOL]: OriginalType;
 };
-
-export type SerializedAsyncIterable<T, Type> = Serialized<
-	AsyncIterable<T, void>,
-	Type
->;
 
 export type CounterFn<T extends string> = () => Branded<number, `counter-${T}`>;
 
