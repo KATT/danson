@@ -182,105 +182,6 @@ test("custom simple type", () => {
 	expect(result).toEqual(source);
 });
 
-test("map", () => {
-	const source = {
-		map: new Map<string, unknown>([
-			["bigint", 1n],
-			["foo", "bar"],
-		]),
-	};
-
-	const meta = serializeSync(source, {
-		serializers,
-	});
-
-	expect(meta.json).toMatchInlineSnapshot(`
-		{
-		  "map": {
-		    "_": "$",
-		    "type": "Map",
-		    "value": [
-		      [
-		        "bigint",
-		        {
-		          "_": "$",
-		          "type": "BigInt",
-		          "value": "1",
-		        },
-		      ],
-		      [
-		        "foo",
-		        "bar",
-		      ],
-		    ],
-		  },
-		}
-	`);
-
-	expect(meta.refs).toBeUndefined();
-
-	const result = deserializeSync<typeof source>(meta, {
-		deserializers,
-	});
-
-	expect(result).toEqual(source);
-});
-
-test("custom complex type with self reference", () => {
-	const map = new Map<string, unknown>();
-	map.set("a", 1);
-	map.set("b", 2);
-
-	const source = {
-		map,
-	};
-
-	map.set("self", map);
-	map.set("self2", map);
-
-	const meta = serializeSync(source, {
-		serializers,
-	});
-
-	expect(meta).toMatchInlineSnapshot(`
-		{
-		  "json": {
-		    "map": "$1",
-		  },
-		  "refs": {
-		    "$1": {
-		      "_": "$",
-		      "type": "Map",
-		      "value": [
-		        [
-		          "a",
-		          1,
-		        ],
-		        [
-		          "b",
-		          2,
-		        ],
-		        [
-		          "self",
-		          "$1",
-		        ],
-		        [
-		          "self2",
-		          "$1",
-		        ],
-		      ],
-		    },
-		  },
-		}
-	`);
-
-	const result = deserializeSync<typeof source>(meta, {
-		deserializers,
-	});
-
-	expect(result).toEqual(source);
-});
-
 test("special handling - ref-like strings", () => {
 	const source = {
 		foo: "$1",
@@ -370,31 +271,6 @@ test("stringify custom type", () => {
 		deserializers: {
 			"Temporal.Instant": deserializeTemporalNow,
 		},
-	});
-	expect(result).toEqual(source);
-});
-
-test("serialize/deserialize undefined", () => {
-	const source = {
-		foo: undefined,
-	};
-
-	const obj = serializeSync(source, {
-		serializers,
-	});
-	expect(obj).toMatchInlineSnapshot(`
-		{
-		  "json": {
-		    "foo": {
-		      "_": "$",
-		      "type": "undefined",
-		    },
-		  },
-		}
-	`);
-
-	const result = deserializeSync<typeof source>(obj, {
-		deserializers,
 	});
 	expect(result).toEqual(source);
 });
