@@ -182,30 +182,38 @@ test("custom simple type", () => {
 	expect(result).toEqual(source);
 });
 
-test("special handling - ref-like strings", () => {
-	const source = {
-		foo: "$1",
-	};
+describe("special handling - ref-like strings", () => {
+	test("$1", () => {
+		const source = "$1";
 
-	const meta = serializeSync(source);
+		const meta = serializeSync(source);
 
-	expect(meta).toMatchInlineSnapshot(`
-		{
-		  "json": {
-		    "foo": {
-		      "_": "$",
-		      "type": "string",
-		      "value": "$1",
-		    },
-		  },
-		}
-	`);
+		expect(meta).toMatchInlineSnapshot(`
+			{
+			  "json": "\\$1",
+			}
+		`);
 
-	const result = deserializeSync<typeof source>(meta, {
-		deserializers,
+		const result = deserializeSync<typeof source>(meta, {
+			deserializers,
+		});
+
+		expect(result).toBe(source);
 	});
 
-	expect(result).toEqual(source);
+	test("\\$1", () => {
+		const source = "\\$1";
+
+		const serialized = serializeSync(source);
+
+		expect(serialized).toMatchInlineSnapshot(`
+			{
+			  "json": "\\\\$1",
+			}
+		`);
+
+		expect(deserializeSync(serialized)).toBe(source);
+	});
 });
 
 test("stringify deduped object", () => {
