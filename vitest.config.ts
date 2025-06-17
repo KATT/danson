@@ -5,7 +5,7 @@ export default defineConfig({
 		clearMocks: true,
 		coverage: {
 			all: true,
-			exclude: ["**/test.*.ts", "**/*.bench.ts"],
+			exclude: ["**/test.*.ts", "**/*.bench.ts", "**/*.test.ts"],
 			include: ["src"],
 			reporter: ["html", "lcov"],
 		},
