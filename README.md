@@ -43,41 +43,6 @@ npm install danson
 
 [Try the example on StackBlitz](https://stackblitz.com/github/KATT/danson/tree/main/example)
 
-### Serializing custom objects
-
-```ts
-import { Temporal } from "@js-temporal/polyfill";
-import { parseSync, stringifySync } from "danson";
-
-const source = {
-	instant: Temporal.Now.instant(),
-};
-
-const stringified = stringifySync(source, {
-	serializers: {
-		"Temporal.Instant": (value) => value.toJSON(),
-	},
-	space: 2,
-});
-/*
-{
-	"json": {
-		"instant": {
-			"_": "$",
-			"type": "Temporal.Instant",
-			"value": "2025-06-13T15:24:51.30029128Z"
-		}
-	}
-}
-*/
-
-const result = parseSync<typeof source>(stringified, {
-	deserializers: {
-		"Temporal.Instant": (value) => Temporal.Instant.from(value as string),
-	},
-});
-```
-
 ### Streaming `Promise`s
 
 #### Promise example input
@@ -184,6 +149,106 @@ for await (const chunk of stringified) {
 ]
 ```
 
+
+### Using Built-in Serializers
+
+The `std` module provides built-in serializers for common JavaScript types.
+
+```ts
+import { parseSync, std, stringifySync } from "danson";
+
+// Using built-in serializers
+const data = {
+	date: new Date(),
+	map: new Map([["key", "value"]]),
+	set: new Set([1, 2, 3]),
+	url: new URL("https://example.com"),
+};
+
+const stringified = stringifySync(data, {
+	serializers: {
+		...std.serializers,
+		// ... your custom serializers
+	},
+	space: 2,
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers,
+		// ... your custom deserializers
+	},
+});
+```
+
+### Custom Serialization
+
+You can provide custom serializers for your own types.
+
+```ts
+import { std } from "danson";
+const stringified = stringifySync(value, {
+	serializers: {
+		...std.serializers, // use the built-in serializers (optional)
+		MyCustomType: (value) => {
+			if (value instanceof MyCustomType) {
+				return value.toJSON();
+			}
+			return false;
+		},
+	},
+});
+
+const parsed = parseSync(stringified, {
+	deserializers: {
+		...std.deserializers, // use the built-in deserializers (optional)
+		MyCustomType: (value) => new MyCustomType(value),
+	},
+});
+```
+
+#### `TransformerPair<TOriginal, TSerialized>`
+
+Type utility for defining serializer/deserializer pairs.
+
+Used internally but can be useful for type-safe custom serializers.
+
+```ts
+import { Temporal } from "@js-temporal/polyfill";
+import { TransformerPair } from "danson";
+
+// Define a type-safe transformer pair for Temporal.Instant
+type TemporalNow = TransformerPair<Temporal.Instant, string>;
+
+const serializeTemporalNow: TemporalNow["serialize"] = (value) => {
+	if (value instanceof Temporal.Instant) {
+		return value.toJSON();
+	}
+	return false;
+};
+
+const deserializeTemporalNow: TemporalNow["deserialize"] = (value) => {
+	return Temporal.Instant.from(value);
+};
+
+// Use the transformer pair
+const source = {
+	instant: Temporal.Now.instant(),
+};
+
+const stringified = stringifySync(source, {
+	serializers: {
+		"Temporal.Instant": serializeTemporalNow,
+	},
+});
+
+const result = parseSync(stringified, {
+	deserializers: {
+		"Temporal.Instant": deserializeTemporalNow,
+	},
+});
+```
+
 <!-- eslint-enable -->
 <!-- prettier-ignore-end -->
 
@@ -220,7 +285,3 @@ Serializes a value into a stream of intermediate objects asynchronously.
 ### `deserializeAsync<T>(value: AsyncIterable<unknown, void>, options?: ParseOptions): Promise<T>`
 
 Deserializes a stream of intermediate objects into a value asynchronously.
-
-### Using Built-in Serializers
-
-The `std`
