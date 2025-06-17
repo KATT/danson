@@ -234,10 +234,7 @@ export function stringifyAsync<T>(
 	})() as SerializedAsyncIterable<string, T>;
 }
 
-export interface DeserializeAsyncOptions
-	extends Omit<DeserializeOptions, keyof SerializeReturn> {
-	deserializers?: DeserializerRecord;
-}
+export type DeserializeAsyncOptions = DeserializeOptions;
 
 /**
  * Deserializes from an intermediate format asynchronously.
