@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.8.0](https://github.com/KATT/danson/compare/0.7.0...0.8.0) (2025-06-17)
+
+### Features
+
+- magic types ([#6](https://github.com/KATT/danson/issues/6)) ([36fda23](https://github.com/KATT/danson/commit/36fda23886e044506706dc5e923eea50deafff60))
+
 # [0.7.0](https://github.com/KATT/danson/compare/0.6.1...0.7.0) (2025-06-16)
 
 ### Features
