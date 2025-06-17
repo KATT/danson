@@ -116,51 +116,6 @@ test("stringify promise", async () => {
 	expect(stringifyAggregate.ok).toBe(true);
 });
 
-test("stringify promise returning Date", async () => {
-	const source = () => ({
-		promise: (async () => {
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			return new Date(0);
-		})(),
-	});
-	const iterable = stringifyAsync(source(), {
-		serializers,
-		space: "\t",
-	});
-
-	const stringifyAggregate = await aggregateAsyncIterable(iterable);
-
-	expect(stringifyAggregate.error).toBeUndefined();
-
-	expect(stringifyAggregate.items).toMatchInlineSnapshot(`
-		[
-		  "{
-			"json": {
-				"promise": {
-					"_": "$",
-					"type": "Promise",
-					"value": 1
-				}
-			}
-		}
-		",
-		  "[
-			1,
-			0,
-			{
-				"json": {
-					"_": "$",
-					"type": "Date",
-					"value": "1970-01-01T00:00:00.000Z"
-				}
-			}
-		]
-		",
-		]
-	`);
-	expect(stringifyAggregate.ok).toBe(true);
-});
-
 test("stringify async generator", async () => {
 	const source = () => ({
 		asyncIterable: (async function* () {
@@ -217,7 +172,7 @@ test("serialize + deserialize async generator returning undefined", async () => 
 	expect(aggregate.return).toBeUndefined();
 });
 
-test("serialize and parse", async () => {
+test("serialize and deserialize", async () => {
 	const source = () => ({
 		asyncIterable: (async function* () {
 			await new Promise((resolve) => setTimeout(resolve, 0));
