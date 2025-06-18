@@ -59,7 +59,7 @@ export interface SerializeAsyncOptions
 	coerceError?: (cause: unknown) => unknown;
 }
 
-type SerializeAsyncChunk = [ChunkIndex, ChunkStatus, SerializeReturn];
+export type SerializeAsyncChunk = [ChunkIndex, ChunkStatus, SerializeReturn];
 
 export type SerializeAsyncYield =
 	// yielded chunks
@@ -446,16 +446,20 @@ export function parseAsync<T>(
 	return deserializeAsync(jsonAggregator(value), options);
 }
 
-async function* lineAggregator(iterable: AsyncIterable<string>) {
+export async function* delimiterAggregator(
+	iterable: AsyncIterable<string>,
+	delimiter: string,
+) {
 	let buffer = "";
 
 	for await (const chunk of iterable) {
 		buffer += chunk;
 
 		let index: number;
-		while ((index = buffer.indexOf("\n")) !== -1) {
-			const line = buffer.slice(0, index);
-			buffer = buffer.slice(index + 1);
+		while ((index = buffer.indexOf(delimiter)) !== -1) {
+			const sliceEnd = index + delimiter.length - 1;
+			const line = buffer.slice(0, sliceEnd);
+			buffer = buffer.slice(sliceEnd + 1);
 			yield line;
 		}
 	}
@@ -471,7 +475,7 @@ async function* jsonAggregator(
 ): AsyncIterable<SerializeAsyncYield, void> {
 	let linesBuffer: string[] = [];
 
-	for await (const line of lineAggregator(iterable)) {
+	for await (const line of delimiterAggregator(iterable, "\n")) {
 		linesBuffer.push(line);
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
