@@ -451,13 +451,14 @@ export async function* delimiterAggregator(
 	delimiter: string,
 ) {
 	let buffer = "";
+	const delimiterLength = delimiter.length;
 
 	for await (const chunk of iterable) {
 		buffer += chunk;
 
 		let index: number;
 		while ((index = buffer.indexOf(delimiter)) !== -1) {
-			const sliceEnd = index + delimiter.length - 1;
+			const sliceEnd = index + delimiterLength - 1;
 			const line = buffer.slice(0, sliceEnd);
 			buffer = buffer.slice(sliceEnd + 1);
 			yield line;
