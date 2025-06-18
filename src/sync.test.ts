@@ -4,9 +4,11 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 import { deserializers, serializers } from "./std.js";
 import {
 	CustomValue,
+	defaultDelimiters,
+	Delimiters,
 	deserializeSync,
-	numberToRef,
 	parseSync,
+	placeholderOf,
 	SerializeReturn,
 	serializeSync,
 	stringifySync,
@@ -79,10 +81,10 @@ test("dedupe", () => {
 	});
 
 	expect(meta.json).toEqual({
-		1: numberToRef(1),
-		2: numberToRef(1),
-		3: numberToRef(2),
-		4: numberToRef(2),
+		1: placeholderOf(1, defaultDelimiters),
+		2: placeholderOf(1, defaultDelimiters),
+		3: placeholderOf(2, defaultDelimiters),
+		4: placeholderOf(2, defaultDelimiters),
 	});
 
 	expect(meta.refs).toBeTruthy();
@@ -110,7 +112,7 @@ test("self-referencing object at top", () => {
 
 	expect(meta.json).toEqual({
 		foo: "bar",
-		self: numberToRef(0),
+		self: placeholderOf(0, defaultDelimiters),
 	});
 	expect(meta.refs).toBeUndefined();
 
@@ -189,12 +191,6 @@ describe("special handling - ref-like strings", () => {
 
 		const meta = serializeSync(source);
 
-		expect(meta).toMatchInlineSnapshot(`
-			{
-			  "json": "\\$1",
-			}
-		`);
-
 		const result = deserializeSync<typeof source>(meta, {
 			deserializers,
 		});
@@ -202,23 +198,9 @@ describe("special handling - ref-like strings", () => {
 		expect(result).toBe(source);
 	});
 
-	test("\\$1", () => {
-		const source = "\\$1";
-
-		const serialized = serializeSync(source);
-
-		expect(serialized).toMatchInlineSnapshot(`
-			{
-			  "json": "\\\\$1",
-			}
-		`);
-
-		expect(deserializeSync(serialized)).toBe(source);
-	});
-
-	test("$", () => {
+	test("custom value", () => {
 		const source = {
-			_: "$",
+			_: placeholderOf("", defaultDelimiters),
 			type: "BigInt" as any,
 			value: "1",
 		} satisfies CustomValue;
@@ -236,7 +218,11 @@ describe("special handling - ref-like strings", () => {
 		expect(serialized).toMatchInlineSnapshot(`
 			{
 			  "json": {
-			    "_": "\\$",
+			    "_": {
+			      "_": "$",
+			      "type": "string",
+			      "value": "$",
+			    },
 			    "type": "BigInt",
 			    "value": "1",
 			  },
@@ -367,5 +353,72 @@ test("serialize/deserialize undefined at top level", () => {
 
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 	const result = deserializeSync(obj);
+	expect(result).toEqual(source);
+});
+
+test("custom prefix/suffix", () => {
+	const delimiters: Delimiters = {
+		prefix: "@@",
+		suffix: "@@",
+	};
+
+	const source = {
+		bigint: 1n,
+		collisions: ["@@foo@@", "@@", "@@@@", "@@undefined@@"],
+		undef: undefined,
+	};
+
+	const serialized = serializeSync(source, {
+		delimiters,
+		serializers,
+	});
+
+	const result = deserializeSync(serialized, {
+		delimiters,
+		deserializers,
+	});
+
+	expect(result).toEqual(source);
+
+	expect(serialized).toMatchInlineSnapshot(`
+		{
+		  "json": {
+		    "bigint": {
+		      "_": "@@@@",
+		      "type": "BigInt",
+		      "value": "1",
+		    },
+		    "collisions": [
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@foo@@",
+		      },
+		      "@@",
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@@@",
+		      },
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@undefined@@",
+		      },
+		    ],
+		    "undef": "@@undefined@@",
+		  },
+		}
+	`);
+});
+
+test("null properties", () => {
+	const source = {
+		foo: null,
+	};
+
+	const serialized = stringifySync(source);
+	const result = parseSync(serialized);
+
 	expect(result).toEqual(source);
 });

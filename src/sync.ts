@@ -12,24 +12,37 @@ import {
 	Serialized,
 } from "./utils.js";
 
-export type RefLikeString<TNumber extends number = number> = `$${TNumber}`;
+export type PlaceholderValue = Branded<string, "placeholder">;
 
-function isRefLikeString(value: unknown): value is RefLikeString {
-	if (typeof value !== "string" || value.length < 2 || !value.startsWith("$")) {
-		return false;
-	}
-	for (let i = 1; i < value.length; i++) {
-		const char = value.charCodeAt(i);
-		// not 0-9
-		if (char < 48 || char > 57) {
-			return false;
-		}
-	}
-	return true;
+function isPlaceholderValue(
+	value: string,
+	opts: Delimiters,
+): value is PlaceholderValue {
+	return (
+		value.length >= opts.prefix.length + opts.suffix.length &&
+		value.startsWith(opts.prefix) &&
+		value.endsWith(opts.suffix)
+	);
 }
-export function numberToRef<T extends number>(index: T): RefLikeString<T> {
-	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-	return `$${index}`;
+
+export function placeholderOf(
+	value: number | string,
+	opts: Delimiters,
+): PlaceholderValue {
+	// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+	return (opts.prefix + value + opts.suffix) as PlaceholderValue;
+}
+
+export interface Delimiters {
+	/**
+	 * The prefix to use for placeholder values.
+	 */
+	prefix: string;
+
+	/**
+	 * The suffix to use for placeholder values.
+	 */
+	suffix: string;
 }
 
 type Index = ReturnType<CounterFn<"index">>;
@@ -40,10 +53,21 @@ export type SerializeFn<_TOriginal, TSerialized> = (
 	value: unknown,
 ) => false | TSerialized;
 
+/**
+ * For exact types, you can use the `PlaceholderTransformer` interface to create a custom serializer.
+ */
+export interface PlaceholderTransformer<
+	TOriginal,
+	TSerialized extends string = string,
+> {
+	placeholder: TSerialized;
+	value: TOriginal;
+}
+
 export type SerializeRecord = Record<
 	string,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	SerializeFn<any, any>
+	PlaceholderTransformer<any> | SerializeFn<any, any>
 >;
 
 export type RefIndex = ReturnType<CounterFn<"ref">>;
@@ -53,16 +77,19 @@ type Satisfies<T, U extends T> = U;
 export type CustomValue = Satisfies<
 	JsonObject,
 	{
-		_: "$"; // as it's a reserved string
+		_: PlaceholderValue;
 		type: SerializeRecordKey;
 		value?: JsonValue;
 	}
 >;
-function isCustomValue(value: Record<string, unknown>): value is CustomValue {
-	return value._ === "$" && typeof value.type === "string";
+function isCustomValue(
+	value: Record<string, unknown>,
+	opts: Delimiters,
+): value is CustomValue {
+	return value._ === opts.prefix + opts.suffix;
 }
 
-type RefRecord = Record<RefLikeString, JsonValue>;
+type RefRecord = Record<PlaceholderValue, JsonValue>;
 
 const reservedSerializerNames = new Set(["string"]);
 
@@ -80,6 +107,11 @@ function isSubPath(path: Path, subPath: Path): boolean {
 	return true;
 }
 
+export const defaultDelimiters = {
+	prefix: "$",
+	suffix: "",
+} as const satisfies Delimiters;
+
 /**
  * Serializes a value into an intermediate format.
  * This is a low-level function used internally by `stringifySync` but can be useful for custom serialization pipelines.
@@ -95,7 +127,9 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 
 	const values = new Map<unknown, [Index, Location, Path]>();
 	const refs: RefRecord = {};
-	const replaceMap = new Map<RefLikeString, Location>();
+	const replaceMap = new Map<PlaceholderValue, Location>();
+
+	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
 
 	const internal: SerializeInternalOptions = options[
 		INTERNAL_OPTIONS_SYMBOL
@@ -111,7 +145,21 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 		return options.dedupe ?? false;
 	}
-	const serializers = options.serializers ?? {};
+
+	const placeholders = new Map<unknown, PlaceholderTransformer<unknown>>();
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const serializers: Record<string, SerializeFn<any, any>> = {};
+
+	for (const [key, value] of Object.entries(options.serializers ?? {})) {
+		if (typeof value === "function") {
+			serializers[key] = value;
+		} else {
+			placeholders.set(value.value, value);
+		}
+	}
+
+	// const serializers = options.serializers ?? {};
 
 	for (const name of reservedSerializerNames) {
 		if (name in serializers) {
@@ -126,7 +174,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 			const [index, location, existingPath] = existing;
 
 			if (shouldDedupe(thing) || isSubPath(path, existingPath)) {
-				const refId: RefLikeString = getOrCreateRef(index);
+				const refId = getOrCreateRef(index);
 
 				replaceMap.set(refId, location);
 
@@ -135,6 +183,11 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 		const index = internal.indexCounter();
 		values.set(thing, [index, location, path]);
+
+		const transformer = placeholders.get(thing);
+		if (transformer && Object.is(transformer.value, thing)) {
+			return delimiters.prefix + transformer.placeholder + delimiters.suffix;
+		}
 
 		for (const name in serializers) {
 			const fn = serializers[name];
@@ -145,7 +198,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 			}
 
 			const customValue: CustomValue = {
-				_: "$",
+				_: (delimiters.prefix + delimiters.suffix) as PlaceholderValue,
 				type: name as SerializeRecordKey,
 			};
 
@@ -161,11 +214,13 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
-			if (
-				typeof thing === "string" &&
-				(isRefLikeString(thing) || thing.startsWith("\\$") || thing === "$")
-			) {
-				return `\\${thing}`;
+			if (typeof thing === "string" && isPlaceholderValue(thing, delimiters)) {
+				const value: CustomValue = {
+					_: (delimiters.prefix + delimiters.suffix) as PlaceholderValue,
+					type: "string" as SerializeRecordKey,
+					value: thing,
+				};
+				return value;
 			}
 
 			return thing;
@@ -173,6 +228,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 
 		if (isPlainObject(thing)) {
 			const result: Record<string, JsonValue> = {};
+
 			for (const key in thing) {
 				result[key] = toJson(thing[key], [result, key], [...path, key]);
 			}
@@ -191,17 +247,17 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		throw new DansonError(`Do not know how to serialize ${thing}`);
 	}
 
-	const indexToRefRecord: Record<Index, RefLikeString> = {};
-	function getOrCreateRef(index: Index): RefLikeString {
+	const indexToRefRecord: Record<Index, PlaceholderValue> = {};
+	function getOrCreateRef(index: Index): PlaceholderValue {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return numberToRef(0);
+			return placeholderOf(0, delimiters);
 		}
 		if (indexToRefRecord[index]) {
 			return indexToRefRecord[index];
 		}
 
-		const refId: RefLikeString = numberToRef(internal.refCounter());
+		const refId = placeholderOf(internal.refCounter(), delimiters);
 		indexToRefRecord[index] = refId;
 
 		return refId;
@@ -262,6 +318,7 @@ export interface SerializeOptions {
 	 * Internal options that we use when doing async serialization.
 	 * @private
 	 */
+	delimiters?: Delimiters;
 	[INTERNAL_OPTIONS_SYMBOL]?: SerializeInternalOptions;
 	serializers?: SerializeRecord;
 }
@@ -299,11 +356,11 @@ export type Deserialize<TOriginal, TSerialized> =
 export type DeserializerRecord = Record<
 	string,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	Deserialize<any, any>
+	Deserialize<any, any> | PlaceholderTransformer<any>
 >;
 
 export interface DeserializeInternalOptions {
-	cache: Map<RefLikeString, unknown>;
+	cache: Map<PlaceholderValue, unknown>;
 }
 export interface DeserializeOptions {
 	deserializers?: DeserializerRecord;
@@ -312,6 +369,7 @@ export interface DeserializeOptions {
 	 * Internal options that we use when doing async deserialization.
 	 * @private
 	 */
+	delimiters?: Delimiters;
 	internal?: DeserializeInternalOptions;
 }
 export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
@@ -330,16 +388,29 @@ export function deserializeSync<T>(
 	if (obj.json === undefined) {
 		return undefined as T;
 	}
-	const deserializers = options.deserializers ?? {};
-	const cache = options.internal?.cache ?? new Map<RefLikeString, unknown>();
+	const refs = obj.refs ?? {};
+	const deserializers: Record<string, Deserialize<unknown, unknown>> = {};
+	const placeholderTransformers = new Map<string, unknown>();
+	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
+	for (const [key, value] of Object.entries(options.deserializers ?? {})) {
+		if (typeof value === "function" || "create" in value) {
+			deserializers[key] = value;
+		} else {
+			placeholderTransformers.set(
+				delimiters.prefix + value.placeholder + delimiters.suffix,
+				value.value,
+			);
+		}
+	}
+	const cache = options.internal?.cache ?? new Map<PlaceholderValue, unknown>();
 
-	function getRefResult(refId: RefLikeString): unknown {
+	function getRefResult(refId: PlaceholderValue): unknown {
 		if (cache.has(refId)) {
 			return cache.get(refId);
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const refValue = obj.refs![refId]!;
+		const refValue = refs[refId]!;
 
 		const result = deserializeValue(refValue, refId);
 		cache.set(refId, result);
@@ -347,17 +418,21 @@ export function deserializeSync<T>(
 		return result;
 	}
 
-	function deserializeValue(value: JsonValue, refId?: RefLikeString): unknown {
-		if (isRefLikeString(value)) {
-			return getRefResult(value);
+	const rootRef = placeholderOf(0, delimiters);
+
+	function deserializeValue(
+		value: JsonValue,
+		refId?: PlaceholderValue,
+	): unknown {
+		if (typeof value === "string") {
+			if (placeholderTransformers.has(value)) {
+				return placeholderTransformers.get(value);
+			}
+			if (value in refs || value === rootRef) {
+				return getRefResult(value as PlaceholderValue);
+			}
 		}
 		if (isJsonPrimitive(value)) {
-			if (
-				typeof value === "string" &&
-				(value.startsWith("\\$") || value.startsWith("\\\\$"))
-			) {
-				return value.slice(1);
-			}
 			return value;
 		}
 
@@ -373,7 +448,7 @@ export function deserializeSync<T>(
 		}
 
 		if (isPlainObject(value)) {
-			if (isCustomValue(value)) {
+			if (isCustomValue(value, delimiters)) {
 				const refType = value.type;
 				const refValue = value.value;
 				if (refType === "string") {
@@ -390,7 +465,7 @@ export function deserializeSync<T>(
 						refValue === undefined ? undefined : deserializeValue(refValue),
 					);
 				}
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
 				const result = deserializer.create();
 				if (refId) {
 					cache.set(refId, result);
@@ -415,7 +490,7 @@ export function deserializeSync<T>(
 		throw new DansonError("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(obj.json, numberToRef(0)) as T;
+	const result = deserializeValue(obj.json, placeholderOf(0, delimiters)) as T;
 
 	return result;
 }
