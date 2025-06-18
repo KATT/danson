@@ -1,3 +1,4 @@
+import { DansonError } from "./error.js";
 import {
 	DeserializerRecord,
 	PlaceholderTransformer,
@@ -152,6 +153,11 @@ const negativeZero = {
 	value: -0,
 } satisfies PlaceholderTransformer<number>;
 
+const numberNaN = {
+	placeholder: "NaN",
+	value: NaN,
+} satisfies PlaceholderTransformer<number>;
+
 /**
  * Built-in serializers for common JS types
  */
@@ -161,6 +167,7 @@ export const serializers = {
 	Headers: serializeHeaders,
 	infinity,
 	Map: serializeMap,
+	NaN: numberNaN,
 	negativeInfinity,
 	negativeZero,
 	RegExp: serializeRegExp,
@@ -180,6 +187,7 @@ export const deserializers = {
 	Headers: deserializeHeaders,
 	infinity,
 	Map: deserializeMap,
+	NaN: numberNaN,
 	negativeInfinity,
 	negativeZero,
 	RegExp: deserializeRegExp,

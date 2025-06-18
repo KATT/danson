@@ -416,3 +416,14 @@ test("custom prefix/suffix", () => {
 		}
 	`);
 });
+
+test("null properties", () => {
+	const source = {
+		foo: null,
+	};
+
+	const serialized = stringifySync(source);
+	const result = parseSync(serialized);
+
+	expect(result).toEqual(source);
+});

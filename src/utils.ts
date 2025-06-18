@@ -44,7 +44,12 @@ export function counter<T extends string>(): CounterFn<T> {
 
 export function isJsonPrimitive(value: unknown): value is JsonPrimitive {
 	const type = typeof value;
-	return type === "boolean" || type === "number" || type === "string";
+	return (
+		type === "boolean" ||
+		type === "number" ||
+		type === "string" ||
+		value === null
+	);
 }
 
 function isObject(o: unknown): o is Record<string, unknown> {

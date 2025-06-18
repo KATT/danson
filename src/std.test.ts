@@ -178,11 +178,12 @@ test("-0", () => {
 	}
 });
 
-// this is up for debate, but I think it's better to throw than to serialize NaN
-test("NaN should throw", () => {
+test("Na", () => {
 	const value = {
 		foo: NaN,
 	};
+
 	const str = stringify(value);
-	expect(() => parse(str)).toThrow();
+	const deserialized = parse(str);
+	expect(deserialized).toEqual(value);
 });
