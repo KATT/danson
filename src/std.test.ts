@@ -7,6 +7,7 @@ import { Serialized } from "./utils.js";
 function stringify<T>(value: T) {
 	return stringifySync(value, {
 		serializers,
+		space: "\t",
 	});
 }
 
@@ -131,36 +132,57 @@ test("undefined", () => {
 
 	expect(deserialized).toHaveProperty("foo", undefined);
 	expect(deserialized).toEqual(value);
+
+	expect(str).toMatchInlineSnapshot(`
+		"{
+			"json": {
+				"foo": "$undefined"
+			}
+		}"
+	`);
 });
 
-describe("number", () => {
-	test("Infinity", () => {
-		const value = Infinity;
-		const str = stringify(value);
-		const deserialized = parse(str);
-		expect(deserialized).toBe(value);
-	});
+test("Infinity", () => {
+	const value = Infinity;
+	const str = stringify(value);
+	const deserialized = parse(str);
+	expect(deserialized).toBe(value);
+});
 
-	test("-Infinity", () => {
-		const value = -Infinity;
-		const str = stringify(value);
-		const deserialized = parse(str);
-		expect(deserialized).toBe(value);
-	});
+test("-Infinity", () => {
+	const value = -Infinity;
+	const str = stringify(value);
+	const deserialized = parse(str);
+	expect(deserialized).toBe(value);
+});
 
-	test("-0", () => {
+test("-0", () => {
+	{
 		const value = -0;
 		const str = stringify(value);
 		const deserialized = parse(str);
 		expect(deserialized).toBe(value);
-	});
 
-	// this is up for debate, but I think it's better to throw than to serialize NaN
-	test("NaN should throw", () => {
-		const value = {
-			foo: NaN,
-		};
+		expect(str).toMatchInlineSnapshot(`
+			"{
+				"json": "$-0"
+			}"
+		`);
+	}
+
+	{
+		const value = 0;
 		const str = stringify(value);
-		expect(() => parse(str)).toThrow();
-	});
+		const deserialized = parse(str);
+		expect(deserialized).toBe(value);
+	}
+});
+
+// this is up for debate, but I think it's better to throw than to serialize NaN
+test("NaN should throw", () => {
+	const value = {
+		foo: NaN,
+	};
+	const str = stringify(value);
+	expect(() => parse(str)).toThrow();
 });

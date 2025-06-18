@@ -1,5 +1,6 @@
 import {
 	DeserializerRecord,
+	PlaceholderTransformer,
 	SerializeRecord,
 	TransformerPair,
 } from "./sync.js";
@@ -57,11 +58,10 @@ const deserializeSet: TransformSet["deserialize"] = {
 	},
 };
 
-type TransformUndef = TransformerPair<undefined, undefined>;
-
-const serializeUndef: TransformUndef["serialize"] = (value) =>
-	value === undefined ? value : false;
-const deserializeUndef: TransformUndef["deserialize"] = () => undefined;
+const transformUndefined = {
+	placeholder: "$undefined",
+	value: undefined,
+} satisfies PlaceholderTransformer<undefined, `$${string}`>;
 
 type TransformURL = TransformerPair<URL, string>;
 
@@ -137,32 +137,20 @@ const deserializeTypedArray: TransformTypedArray["deserialize"] = (value) => {
 	return new TypedArrayConstructor(data);
 };
 
-// handle -0, Infinity, -Infinity
-type TransformSpecialNumber = TransformerPair<
-	number,
-	`-0` | `-Infinity` | `Infinity`
->;
-const serializeSpecialNumber: TransformSpecialNumber["serialize"] = (value) => {
-	if (typeof value !== "number") {
-		return false;
-	}
-	if (value === 0 && 1 / value < 0) {
-		return "-0";
-	}
-	if (value === Infinity) {
-		return "Infinity";
-	}
-	if (value === -Infinity) {
-		return "-Infinity";
-	}
-	return false;
-};
+const infinity = {
+	placeholder: "$Infinity",
+	value: Infinity,
+} satisfies PlaceholderTransformer<number, `$${string}`>;
 
-const deserializeSpecialNumber: TransformSpecialNumber["deserialize"] = (
-	value,
-) => {
-	return Number(value);
-};
+const negativeInfinity = {
+	placeholder: "$-Infinity",
+	value: -Infinity,
+} satisfies PlaceholderTransformer<number, `$${string}`>;
+
+const negativeZero = {
+	placeholder: "$-0",
+	value: -0,
+} satisfies PlaceholderTransformer<number, `$${string}`>;
 
 /**
  * Built-in serializers for common JS types
@@ -171,12 +159,14 @@ export const serializers = {
 	BigInt: serializeBigInt,
 	Date: serializeDate,
 	Headers: serializeHeaders,
+	infinity,
 	Map: serializeMap,
-	number: serializeSpecialNumber,
+	negativeInfinity,
+	negativeZero,
 	RegExp: serializeRegExp,
 	Set: serializeSet,
 	TypedArray: serializeTypedArray,
-	undefined: serializeUndef,
+	undefined: transformUndefined,
 	URL: serializeURL,
 	URLSearchParams: serializeURLSearchParams,
 } satisfies SerializeRecord;
@@ -188,12 +178,14 @@ export const deserializers = {
 	BigInt: deserializeBigInt,
 	Date: deserializeDate,
 	Headers: deserializeHeaders,
+	infinity,
 	Map: deserializeMap,
-	number: deserializeSpecialNumber,
+	negativeInfinity,
+	negativeZero,
 	RegExp: deserializeRegExp,
 	Set: deserializeSet,
 	TypedArray: deserializeTypedArray,
-	undefined: deserializeUndef,
+	undefined: transformUndefined,
 	URL: deserializeURL,
 	URLSearchParams: deserializeURLSearchParams,
 } satisfies DeserializerRecord;
