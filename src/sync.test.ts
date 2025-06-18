@@ -9,7 +9,6 @@ import {
 	deserializeSync,
 	parseSync,
 	placeholderOf,
-	PlaceholderValue,
 	SerializeReturn,
 	serializeSync,
 	stringifySync,

@@ -1,4 +1,3 @@
-import { DansonError } from "./error.js";
 import {
 	DeserializerRecord,
 	PlaceholderTransformer,
