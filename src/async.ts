@@ -332,7 +332,7 @@ export async function deserializeAsync<T>(
 		},
 	};
 	/* eslint-enable perfectionist/sort-objects */
-	const opts: Required<DeserializeOptions> = {
+	const opts: Omit<Required<DeserializeOptions>, "delimiters"> = {
 		deserializers: {
 			...options.deserializers,
 			...deserializers,

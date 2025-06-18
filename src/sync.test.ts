@@ -3,8 +3,9 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import {
-	CommonOptions,
 	CustomValue,
+	defaultDelimiters,
+	Delimiters,
 	deserializeSync,
 	parseSync,
 	placeholderOf,
@@ -14,11 +15,6 @@ import {
 	stringifySync,
 	TransformerPair,
 } from "./sync.js";
-
-const common: Required<CommonOptions> = {
-	prefix: "$",
-	suffix: "",
-};
 
 test("string", () => {
 	const source = "hello";
@@ -86,10 +82,10 @@ test("dedupe", () => {
 	});
 
 	expect(meta.json).toEqual({
-		1: placeholderOf(1, common),
-		2: placeholderOf(1, common),
-		3: placeholderOf(2, common),
-		4: placeholderOf(2, common),
+		1: placeholderOf(1, defaultDelimiters),
+		2: placeholderOf(1, defaultDelimiters),
+		3: placeholderOf(2, defaultDelimiters),
+		4: placeholderOf(2, defaultDelimiters),
 	});
 
 	expect(meta.refs).toBeTruthy();
@@ -117,7 +113,7 @@ test("self-referencing object at top", () => {
 
 	expect(meta.json).toEqual({
 		foo: "bar",
-		self: placeholderOf(0, common),
+		self: placeholderOf(0, defaultDelimiters),
 	});
 	expect(meta.refs).toBeUndefined();
 
@@ -203,9 +199,9 @@ describe("special handling - ref-like strings", () => {
 		expect(result).toBe(source);
 	});
 
-	test("$", () => {
+	test("custom value", () => {
 		const source = {
-			_: "$" as PlaceholderValue,
+			_: placeholderOf("", defaultDelimiters),
 			type: "BigInt" as any,
 			value: "1",
 		} satisfies CustomValue;
@@ -362,7 +358,7 @@ test("serialize/deserialize undefined at top level", () => {
 });
 
 test("custom prefix/suffix", () => {
-	const common: Required<CommonOptions> = {
+	const delimiters: Delimiters = {
 		prefix: "@@",
 		suffix: "@@",
 	};
@@ -374,12 +370,12 @@ test("custom prefix/suffix", () => {
 	};
 
 	const serialized = serializeSync(source, {
-		...common,
+		delimiters,
 		serializers,
 	});
 
 	const result = deserializeSync(serialized, {
-		...common,
+		delimiters,
 		deserializers,
 	});
 

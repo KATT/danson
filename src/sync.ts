@@ -16,7 +16,7 @@ export type PlaceholderValue = Branded<string, "placeholder">;
 
 function isPlaceholderValue(
 	value: string,
-	opts: Required<CommonOptions>,
+	opts: Delimiters,
 ): value is PlaceholderValue {
 	return (
 		value.length >= opts.prefix.length + opts.suffix.length &&
@@ -27,22 +27,22 @@ function isPlaceholderValue(
 
 export function placeholderOf(
 	value: number | string,
-	opts: Required<CommonOptions>,
+	opts: Delimiters,
 ): PlaceholderValue {
 	// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
 	return (opts.prefix + value + opts.suffix) as PlaceholderValue;
 }
 
-export interface CommonOptions {
+export interface Delimiters {
 	/**
 	 * The prefix to use for placeholder values.
 	 */
-	prefix?: string;
+	prefix: string;
 
 	/**
 	 * The suffix to use for placeholder values.
 	 */
-	suffix?: string;
+	suffix: string;
 }
 
 type Index = ReturnType<CounterFn<"index">>;
@@ -84,7 +84,7 @@ export type CustomValue = Satisfies<
 >;
 function isCustomValue(
 	value: Record<string, unknown>,
-	opts: Required<CommonOptions>,
+	opts: Delimiters,
 ): value is CustomValue {
 	return value._ === opts.prefix + opts.suffix;
 }
@@ -107,6 +107,11 @@ function isSubPath(path: Path, subPath: Path): boolean {
 	return true;
 }
 
+export const defaultDelimiters = {
+	prefix: "$",
+	suffix: "",
+} as const satisfies Delimiters;
+
 /**
  * Serializes a value into an intermediate format.
  * This is a low-level function used internally by `stringifySync` but can be useful for custom serialization pipelines.
@@ -124,10 +129,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	const refs: RefRecord = {};
 	const replaceMap = new Map<PlaceholderValue, Location>();
 
-	const common: Required<CommonOptions> = {
-		prefix: options.prefix ?? "$",
-		suffix: options.suffix ?? "",
-	};
+	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
 
 	const internal: SerializeInternalOptions = options[
 		INTERNAL_OPTIONS_SYMBOL
@@ -184,7 +186,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 
 		const transformer = placeholders.get(thing);
 		if (transformer && Object.is(transformer.value, thing)) {
-			return common.prefix + transformer.placeholder + common.suffix;
+			return delimiters.prefix + transformer.placeholder + delimiters.suffix;
 		}
 
 		for (const name in serializers) {
@@ -196,7 +198,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 			}
 
 			const customValue: CustomValue = {
-				_: (common.prefix + common.suffix) as PlaceholderValue,
+				_: (delimiters.prefix + delimiters.suffix) as PlaceholderValue,
 				type: name as SerializeRecordKey,
 			};
 
@@ -212,9 +214,9 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
-			if (typeof thing === "string" && isPlaceholderValue(thing, common)) {
+			if (typeof thing === "string" && isPlaceholderValue(thing, delimiters)) {
 				const value: CustomValue = {
-					_: (common.prefix + common.suffix) as PlaceholderValue,
+					_: (delimiters.prefix + delimiters.suffix) as PlaceholderValue,
 					type: "string" as SerializeRecordKey,
 					value: thing,
 				};
@@ -249,13 +251,13 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	function getOrCreateRef(index: Index): PlaceholderValue {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return placeholderOf(0, common);
+			return placeholderOf(0, delimiters);
 		}
 		if (indexToRefRecord[index]) {
 			return indexToRefRecord[index];
 		}
 
-		const refId = placeholderOf(internal.refCounter(), common);
+		const refId = placeholderOf(internal.refCounter(), delimiters);
 		indexToRefRecord[index] = refId;
 
 		return refId;
@@ -301,7 +303,7 @@ export interface SerializeInternalOptions {
 	refCounter: CounterFn<"ref">;
 }
 
-export interface SerializeOptions extends CommonOptions {
+export interface SerializeOptions {
 	/**
 	 * Dedupe values.
 	 *
@@ -316,6 +318,7 @@ export interface SerializeOptions extends CommonOptions {
 	 * Internal options that we use when doing async serialization.
 	 * @private
 	 */
+	delimiters?: Delimiters;
 	[INTERNAL_OPTIONS_SYMBOL]?: SerializeInternalOptions;
 	serializers?: SerializeRecord;
 }
@@ -359,13 +362,14 @@ export type DeserializerRecord = Record<
 export interface DeserializeInternalOptions {
 	cache: Map<PlaceholderValue, unknown>;
 }
-export interface DeserializeOptions extends CommonOptions {
+export interface DeserializeOptions {
 	deserializers?: DeserializerRecord;
 
 	/**
 	 * Internal options that we use when doing async deserialization.
 	 * @private
 	 */
+	delimiters?: Delimiters;
 	internal?: DeserializeInternalOptions;
 }
 export type TypedDeserializeOptions<T> = Serialized<DeserializeOptions, T>;
@@ -387,16 +391,13 @@ export function deserializeSync<T>(
 	const refs = obj.refs ?? {};
 	const deserializers: Record<string, Deserialize<unknown, unknown>> = {};
 	const placeholderTransformers = new Map<string, unknown>();
-	const common: Required<CommonOptions> = {
-		prefix: options.prefix ?? "$",
-		suffix: options.suffix ?? "",
-	};
+	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
 	for (const [key, value] of Object.entries(options.deserializers ?? {})) {
 		if (typeof value === "function" || "create" in value) {
 			deserializers[key] = value;
 		} else {
 			placeholderTransformers.set(
-				common.prefix + value.placeholder + common.suffix,
+				delimiters.prefix + value.placeholder + delimiters.suffix,
 				value.value,
 			);
 		}
@@ -417,7 +418,7 @@ export function deserializeSync<T>(
 		return result;
 	}
 
-	const rootRef = placeholderOf(0, common);
+	const rootRef = placeholderOf(0, delimiters);
 
 	function deserializeValue(
 		value: JsonValue,
@@ -447,7 +448,7 @@ export function deserializeSync<T>(
 		}
 
 		if (isPlainObject(value)) {
-			if (isCustomValue(value, common)) {
+			if (isCustomValue(value, delimiters)) {
 				const refType = value.type;
 				const refValue = value.value;
 				if (refType === "string") {
@@ -489,7 +490,7 @@ export function deserializeSync<T>(
 		throw new DansonError("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(obj.json, placeholderOf(0, common)) as T;
+	const result = deserializeValue(obj.json, placeholderOf(0, delimiters)) as T;
 
 	return result;
 }
