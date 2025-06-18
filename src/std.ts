@@ -59,9 +59,9 @@ const deserializeSet: TransformSet["deserialize"] = {
 };
 
 const transformUndefined = {
-	placeholder: "$undefined",
+	placeholder: "undefined",
 	value: undefined,
-} satisfies PlaceholderTransformer<undefined, `$${string}`>;
+} satisfies PlaceholderTransformer<undefined>;
 
 type TransformURL = TransformerPair<URL, string>;
 
@@ -138,19 +138,19 @@ const deserializeTypedArray: TransformTypedArray["deserialize"] = (value) => {
 };
 
 const infinity = {
-	placeholder: "$Infinity",
+	placeholder: "Infinity",
 	value: Infinity,
-} satisfies PlaceholderTransformer<number, `$${string}`>;
+} satisfies PlaceholderTransformer<number>;
 
 const negativeInfinity = {
-	placeholder: "$-Infinity",
+	placeholder: "-Infinity",
 	value: -Infinity,
-} satisfies PlaceholderTransformer<number, `$${string}`>;
+} satisfies PlaceholderTransformer<number>;
 
 const negativeZero = {
-	placeholder: "$-0",
+	placeholder: "-0",
 	value: -0,
-} satisfies PlaceholderTransformer<number, `$${string}`>;
+} satisfies PlaceholderTransformer<number>;
 
 /**
  * Built-in serializers for common JS types

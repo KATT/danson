@@ -92,7 +92,7 @@ export type SerializeFn<_TOriginal, TSerialized> = (
  */
 export interface PlaceholderTransformer<
 	TOriginal,
-	TSerialized extends `$${string}` = `$${string}`,
+	TSerialized extends string = string,
 > {
 	placeholder: TSerialized;
 	value: TOriginal;
@@ -182,7 +182,6 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		unknown,
 		PlaceholderTransformer<unknown>
 	>();
-	const placeholderKeys = new Set<string>();
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const serializers: Record<string, SerializeFn<any, any>> = {};
@@ -192,8 +191,6 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 			serializers[key] = value;
 		} else {
 			placeholderTransformers.set(value.value, value);
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-			placeholderKeys.add(value.value);
 		}
 	}
 
@@ -224,7 +221,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 
 		const transformer = placeholderTransformers.get(thing);
 		if (transformer && Object.is(transformer.value, thing)) {
-			return transformer.placeholder;
+			return common.prefix + transformer.placeholder + common.suffix;
 		}
 
 		for (const name in serializers) {
@@ -429,7 +426,10 @@ export function deserializeSync<T>(
 		if (typeof value === "function" || "create" in value) {
 			deserializers[key] = value;
 		} else {
-			placeholderTransformers.set(value.placeholder, value.value);
+			placeholderTransformers.set(
+				common.prefix + value.placeholder + common.suffix,
+				value.value,
+			);
 		}
 	}
 	const cache = options.internal?.cache ?? new Map<PlaceholderValue, unknown>();
@@ -453,11 +453,11 @@ export function deserializeSync<T>(
 		refId?: PlaceholderValue,
 	): unknown {
 		if (typeof value === "string") {
-			if (
-				isPlaceholderValue(value, common) &&
-				isPlaceholderRef(value, common)
-			) {
-				return getRefResult(value);
+			if (isPlaceholderValue(value, common)) {
+				if (isPlaceholderRef(value, common)) {
+					return getRefResult(value);
+				}
+				return placeholderTransformers.get(value);
 			}
 		}
 		if (isJsonPrimitive(value)) {
