@@ -39,7 +39,7 @@ export async function parseEventStream<T>(
 	return deserializeAsync(eventStreamAggregator(value));
 }
 
-export async function* eventStreamAggregator(
+async function* eventStreamAggregator(
 	iterable: AsyncIterable<string, void>,
 ): AsyncIterable<SerializeAsyncYield, void> {
 	const lines = delimiterAggregator(iterable, "\n\n");
