@@ -51,10 +51,7 @@ function escaped<T extends string>(str: T): `\\${T}` {
 }
 
 function escapeIfNeeded(str: string, opts: Required<CommonOptions>) {
-	if (!str.endsWith(opts.suffix)) {
-		return str;
-	}
-	if (str.startsWith(opts.prefix) || str.startsWith(escaped(opts.prefix))) {
+	if (isPlaceholderValue(str, opts) || str.startsWith(escaped(opts.prefix))) {
 		return escaped(str);
 	}
 	return str;
@@ -62,9 +59,8 @@ function escapeIfNeeded(str: string, opts: Required<CommonOptions>) {
 
 function unescapeIfNeeded(str: string, opts: Required<CommonOptions>) {
 	if (
-		str.endsWith(opts.suffix) &&
-		(str.startsWith(escaped(opts.prefix)) ||
-			str.startsWith(escaped(escaped(opts.prefix))))
+		str.startsWith(escaped(opts.prefix)) ||
+		str.startsWith(escaped(escaped(opts.prefix)))
 	) {
 		return str.slice(1);
 	}
@@ -111,7 +107,7 @@ type Satisfies<T, U extends T> = U;
 export type CustomValue = Satisfies<
 	JsonObject,
 	{
-		_: "$"; // as it's a reserved string
+		_: PlaceholderValue;
 		type: SerializeRecordKey;
 		value?: JsonValue;
 	}
@@ -233,7 +229,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 			}
 
 			const customValue: CustomValue = {
-				_: "$",
+				_: (common.prefix + common.suffix) as PlaceholderValue,
 				type: name as SerializeRecordKey,
 			};
 

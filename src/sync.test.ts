@@ -8,6 +8,7 @@ import {
 	deserializeSync,
 	numberToRef,
 	parseSync,
+	PlaceholderValue,
 	SerializeReturn,
 	serializeSync,
 	stringifySync,
@@ -224,7 +225,7 @@ describe("special handling - ref-like strings", () => {
 
 	test("$", () => {
 		const source = {
-			_: "$",
+			_: "$" as PlaceholderValue,
 			type: "BigInt" as any,
 			value: "1",
 		} satisfies CustomValue;
@@ -374,4 +375,48 @@ test("serialize/deserialize undefined at top level", () => {
 	// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 	const result = deserializeSync(obj);
 	expect(result).toEqual(source);
+});
+
+test("custom prefix/suffix", () => {
+	const common: Required<CommonOptions> = {
+		prefix: "@@",
+		suffix: "@@",
+	};
+
+	const source = {
+		bigint: 1n,
+		collisions: ["@@foo@@", "@@", "@@@@", "@@undefined@@"],
+		undef: undefined,
+	};
+
+	const serialized = serializeSync(source, {
+		...common,
+		serializers,
+	});
+
+	const result = deserializeSync(serialized, {
+		...common,
+		deserializers,
+	});
+
+	expect(result).toEqual(source);
+
+	expect(serialized).toMatchInlineSnapshot(`
+		{
+		  "json": {
+		    "bigint": {
+		      "_": "@@@@",
+		      "type": "BigInt",
+		      "value": "1",
+		    },
+		    "collisions": [
+		      "\\@@foo@@",
+		      "@@",
+		      "\\@@@@",
+		      "\\@@undefined@@",
+		    ],
+		    "undef": "@@undefined@@",
+		  },
+		}
+	`);
 });
