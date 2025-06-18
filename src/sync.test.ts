@@ -6,8 +6,8 @@ import {
 	CommonOptions,
 	CustomValue,
 	deserializeSync,
-	numberToRef,
 	parseSync,
+	placeholderOf,
 	PlaceholderValue,
 	SerializeReturn,
 	serializeSync,
@@ -86,10 +86,10 @@ test("dedupe", () => {
 	});
 
 	expect(meta.json).toEqual({
-		1: numberToRef(1, common),
-		2: numberToRef(1, common),
-		3: numberToRef(2, common),
-		4: numberToRef(2, common),
+		1: placeholderOf(1, common),
+		2: placeholderOf(1, common),
+		3: placeholderOf(2, common),
+		4: placeholderOf(2, common),
 	});
 
 	expect(meta.refs).toBeTruthy();
@@ -117,7 +117,7 @@ test("self-referencing object at top", () => {
 
 	expect(meta.json).toEqual({
 		foo: "bar",
-		self: numberToRef(0, common),
+		self: placeholderOf(0, common),
 	});
 	expect(meta.refs).toBeUndefined();
 

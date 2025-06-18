@@ -25,6 +25,14 @@ function isPlaceholderValue(
 	);
 }
 
+export function placeholderOf(
+	value: number | string,
+	opts: Required<CommonOptions>,
+): PlaceholderValue {
+	// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+	return (opts.prefix + value + opts.suffix) as PlaceholderValue;
+}
+
 export interface CommonOptions {
 	/**
 	 * The prefix to use for placeholder values.
@@ -35,14 +43,6 @@ export interface CommonOptions {
 	 * The suffix to use for placeholder values.
 	 */
 	suffix?: string;
-}
-
-export function numberToRef<T extends number>(
-	index: T,
-	opts: Required<CommonOptions>,
-): PlaceholderValue {
-	// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-	return `${opts.prefix}${index}${opts.suffix}` as PlaceholderValue;
 }
 
 type Index = ReturnType<CounterFn<"index">>;
@@ -144,10 +144,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		return options.dedupe ?? false;
 	}
 
-	const placeholderTransformers = new Map<
-		unknown,
-		PlaceholderTransformer<unknown>
-	>();
+	const placeholders = new Map<unknown, PlaceholderTransformer<unknown>>();
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const serializers: Record<string, SerializeFn<any, any>> = {};
@@ -156,7 +153,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		if (typeof value === "function") {
 			serializers[key] = value;
 		} else {
-			placeholderTransformers.set(value.value, value);
+			placeholders.set(value.value, value);
 		}
 	}
 
@@ -185,7 +182,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		const index = internal.indexCounter();
 		values.set(thing, [index, location, path]);
 
-		const transformer = placeholderTransformers.get(thing);
+		const transformer = placeholders.get(thing);
 		if (transformer && Object.is(transformer.value, thing)) {
 			return common.prefix + transformer.placeholder + common.suffix;
 		}
@@ -252,13 +249,13 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	function getOrCreateRef(index: Index): PlaceholderValue {
 		if (index === 1) {
 			// special handling for self-referencing objects at top level
-			return numberToRef(0, common);
+			return placeholderOf(0, common);
 		}
 		if (indexToRefRecord[index]) {
 			return indexToRefRecord[index];
 		}
 
-		const refId: PlaceholderValue = numberToRef(internal.refCounter(), common);
+		const refId = placeholderOf(internal.refCounter(), common);
 		indexToRefRecord[index] = refId;
 
 		return refId;
@@ -420,7 +417,7 @@ export function deserializeSync<T>(
 		return result;
 	}
 
-	const rootRef = numberToRef(0, common);
+	const rootRef = placeholderOf(0, common);
 
 	function deserializeValue(
 		value: JsonValue,
@@ -492,7 +489,7 @@ export function deserializeSync<T>(
 		throw new DansonError("Deserializing unknown value");
 	}
 
-	const result = deserializeValue(obj.json, numberToRef(0, common)) as T;
+	const result = deserializeValue(obj.json, placeholderOf(0, common)) as T;
 
 	return result;
 }
