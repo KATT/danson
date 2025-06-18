@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.12.0](https://github.com/KATT/danson/compare/0.11.2...0.12.0) (2025-06-18)
+
+### Features
+
+- event stream ([#13](https://github.com/KATT/danson/issues/13)) ([0fb9dd6](https://github.com/KATT/danson/commit/0fb9dd634962cb05c5486cfa482e909f889ac210))
+
 ## [0.11.2](https://github.com/KATT/danson/compare/0.11.1...0.11.2) (2025-06-17)
 
 ### Bug Fixes
