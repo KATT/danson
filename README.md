@@ -82,7 +82,7 @@ Supported types:
 - `Date`
 - `Headers`
 - `Map`
-- Special numbers (`-0`, `Infinity`, `-Infinity`)
+- Special numbers (`-0`, `Infinity`, `-Infinity`, `NaN`)
 - `RegExp`
 - `Set`
 - TypedArrays (`Int8Array`, `Uint8Array`, etc.)
@@ -105,6 +105,7 @@ const data = {
 		infinity: Infinity,
 		negativeInfinity: -Infinity,
 		negativeZero: -0,
+		notANumber: NaN,
 	},
 	regexp: /foo/g,
 	set: new Set([1, 2, 3]),
