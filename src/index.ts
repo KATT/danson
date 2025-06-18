@@ -1,4 +1,9 @@
 export {
+	parseEventStream,
+	stringifyEventStream,
+} from "./async.event-stream.js";
+
+export {
 	deserializeAsync,
 	parseAsync,
 	serializeAsync,
