@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, test } from "vitest";
 
 import { deserializers, serializers } from "./std.js";
 import {
+	CommonOptions,
 	CustomValue,
 	deserializeSync,
 	numberToRef,
@@ -12,6 +13,11 @@ import {
 	stringifySync,
 	TransformerPair,
 } from "./sync.js";
+
+const common: Required<CommonOptions> = {
+	prefix: "$",
+	suffix: "",
+};
 
 test("string", () => {
 	const source = "hello";
@@ -79,10 +85,10 @@ test("dedupe", () => {
 	});
 
 	expect(meta.json).toEqual({
-		1: numberToRef(1),
-		2: numberToRef(1),
-		3: numberToRef(2),
-		4: numberToRef(2),
+		1: numberToRef(1, common),
+		2: numberToRef(1, common),
+		3: numberToRef(2, common),
+		4: numberToRef(2, common),
 	});
 
 	expect(meta.refs).toBeTruthy();
@@ -110,7 +116,7 @@ test("self-referencing object at top", () => {
 
 	expect(meta.json).toEqual({
 		foo: "bar",
-		self: numberToRef(0),
+		self: numberToRef(0, common),
 	});
 	expect(meta.refs).toBeUndefined();
 
@@ -207,13 +213,13 @@ describe("special handling - ref-like strings", () => {
 
 		const serialized = serializeSync(source);
 
+		expect(deserializeSync(serialized)).toBe(source);
+
 		expect(serialized).toMatchInlineSnapshot(`
 			{
 			  "json": "\\\\$1",
 			}
 		`);
-
-		expect(deserializeSync(serialized)).toBe(source);
 	});
 
 	test("$", () => {
