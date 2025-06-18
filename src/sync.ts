@@ -46,27 +46,6 @@ export interface CommonOptions {
 	suffix?: string;
 }
 
-function escaped<T extends string>(str: T): `\\${T}` {
-	return `\\${str}`;
-}
-
-function escapeIfNeeded(str: string, opts: Required<CommonOptions>) {
-	if (isPlaceholderValue(str, opts) || str.startsWith(escaped(opts.prefix))) {
-		return escaped(str);
-	}
-	return str;
-}
-
-function unescapeIfNeeded(str: string, opts: Required<CommonOptions>) {
-	if (
-		str.startsWith(escaped(opts.prefix)) ||
-		str.startsWith(escaped(escaped(opts.prefix)))
-	) {
-		return str.slice(1);
-	}
-	return str;
-}
-
 export function numberToRef<T extends number>(
 	index: T,
 	opts: Required<CommonOptions>,
@@ -245,8 +224,13 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		if (isJsonPrimitive(thing)) {
-			if (typeof thing === "string") {
-				return escapeIfNeeded(thing, common);
+			if (typeof thing === "string" && isPlaceholderValue(thing, common)) {
+				const value: CustomValue = {
+					_: (common.prefix + common.suffix) as PlaceholderValue,
+					type: "string" as SerializeRecordKey,
+					value: thing,
+				};
+				return value;
 			}
 
 			return thing;
@@ -457,9 +441,6 @@ export function deserializeSync<T>(
 			}
 		}
 		if (isJsonPrimitive(value)) {
-			if (typeof value === "string") {
-				return unescapeIfNeeded(value, common);
-			}
 			return value;
 		}
 

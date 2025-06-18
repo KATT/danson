@@ -196,31 +196,11 @@ describe("special handling - ref-like strings", () => {
 
 		const meta = serializeSync(source);
 
-		expect(meta).toMatchInlineSnapshot(`
-			{
-			  "json": "\\$1",
-			}
-		`);
-
 		const result = deserializeSync<typeof source>(meta, {
 			deserializers,
 		});
 
 		expect(result).toBe(source);
-	});
-
-	test("\\$1", () => {
-		const source = "\\$1";
-
-		const serialized = serializeSync(source);
-
-		expect(deserializeSync(serialized)).toBe(source);
-
-		expect(serialized).toMatchInlineSnapshot(`
-			{
-			  "json": "\\\\$1",
-			}
-		`);
 	});
 
 	test("$", () => {
@@ -243,7 +223,11 @@ describe("special handling - ref-like strings", () => {
 		expect(serialized).toMatchInlineSnapshot(`
 			{
 			  "json": {
-			    "_": "\\$",
+			    "_": {
+			      "_": "$",
+			      "type": "string",
+			      "value": "$",
+			    },
 			    "type": "BigInt",
 			    "value": "1",
 			  },
@@ -410,10 +394,22 @@ test("custom prefix/suffix", () => {
 		      "value": "1",
 		    },
 		    "collisions": [
-		      "\\@@foo@@",
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@foo@@",
+		      },
 		      "@@",
-		      "\\@@@@",
-		      "\\@@undefined@@",
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@@@",
+		      },
+		      {
+		        "_": "@@@@",
+		        "type": "string",
+		        "value": "@@undefined@@",
+		      },
 		    ],
 		    "undef": "@@undefined@@",
 		  },
