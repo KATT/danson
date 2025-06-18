@@ -25,15 +25,6 @@ function isPlaceholderValue(
 	);
 }
 
-function isPlaceholderRef(
-	value: PlaceholderValue,
-	opts: Required<CommonOptions>,
-) {
-	const char = value.charCodeAt(opts.prefix.length);
-
-	return !isNaN(char) && char >= 48 && char <= 57;
-}
-
 export interface CommonOptions {
 	/**
 	 * The prefix to use for placeholder values.
@@ -396,6 +387,7 @@ export function deserializeSync<T>(
 	if (obj.json === undefined) {
 		return undefined as T;
 	}
+	const refs = obj.refs ?? {};
 	const deserializers: Record<string, Deserialize<unknown, unknown>> = {};
 	const placeholderTransformers = new Map<string, unknown>();
 	const common: Required<CommonOptions> = {
@@ -420,7 +412,7 @@ export function deserializeSync<T>(
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const refValue = obj.refs![refId]!;
+		const refValue = refs[refId]!;
 
 		const result = deserializeValue(refValue, refId);
 		cache.set(refId, result);
@@ -428,16 +420,18 @@ export function deserializeSync<T>(
 		return result;
 	}
 
+	const rootRef = numberToRef(0, common);
+
 	function deserializeValue(
 		value: JsonValue,
 		refId?: PlaceholderValue,
 	): unknown {
 		if (typeof value === "string") {
-			if (isPlaceholderValue(value, common)) {
-				if (isPlaceholderRef(value, common)) {
-					return getRefResult(value);
-				}
+			if (placeholderTransformers.has(value)) {
 				return placeholderTransformers.get(value);
+			}
+			if (value in refs || value === rootRef) {
+				return getRefResult(value as PlaceholderValue);
 			}
 		}
 		if (isJsonPrimitive(value)) {
