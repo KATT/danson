@@ -1,5 +1,11 @@
 # Changelog
 
+# [0.13.0](https://github.com/KATT/danson/compare/0.12.0...0.13.0) (2025-06-18)
+
+### Features
+
+- custom delimiters ([#12](https://github.com/KATT/danson/issues/12)) ([bfae71a](https://github.com/KATT/danson/commit/bfae71a8dc47ebbac9a350504dfc7aa894631e5e))
+
 # [0.12.0](https://github.com/KATT/danson/compare/0.11.2...0.12.0) (2025-06-18)
 
 ### Features
