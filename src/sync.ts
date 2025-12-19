@@ -3,6 +3,7 @@ import {
 	Branded,
 	counter,
 	CounterFn,
+	createObject,
 	INTERNAL_OPTIONS_SYMBOL,
 	isJsonPrimitive,
 	isPlainObject,
@@ -126,7 +127,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 	type Location = [parent: JsonArray | JsonObject, key: number | string] | null;
 
 	const values = new Map<unknown, [Index, Location, Path]>();
-	const refs: RefRecord = {};
+	const refs: RefRecord = createObject();
 	const replaceMap = new Map<PlaceholderValue, Location>();
 
 	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
@@ -227,7 +228,7 @@ export function serializeSync<T>(value: T, options: SerializeOptions = {}) {
 		}
 
 		if (isPlainObject(thing)) {
-			const result: Record<string, JsonValue> = {};
+			const result: Record<string, JsonValue> = createObject();
 
 			for (const key in thing) {
 				result[key] = toJson(thing[key], [result, key], [...path, key]);
@@ -388,7 +389,7 @@ export function deserializeSync<T>(
 	if (obj.json === undefined) {
 		return undefined as T;
 	}
-	const refs = obj.refs ?? {};
+	const refs: RefRecord = obj.refs ?? createObject();
 	const deserializers: Record<string, Deserialize<unknown, unknown>> = {};
 	const placeholderTransformers = new Map<string, unknown>();
 	const delimiters: Delimiters = options.delimiters ?? defaultDelimiters;
@@ -477,7 +478,7 @@ export function deserializeSync<T>(
 				return result;
 			}
 
-			const result: Record<string, unknown> = {};
+			const result: Record<string, unknown> = createObject();
 			if (refId) {
 				cache.set(refId, result);
 			}
@@ -506,6 +507,7 @@ export function parseSync<T>(
 	options: DeserializeOptions = {},
 ): T {
 	const json = JSON.parse(value) as Serialized<SerializeReturn, T>;
+
 	return deserializeSync<T>(json, options);
 }
 

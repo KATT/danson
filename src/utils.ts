@@ -83,3 +83,7 @@ export function isPlainObject(o: unknown): o is Record<string, unknown> {
 	// Most likely a plain Object
 	return true;
 }
+
+export function createObject<T extends Record<string, unknown>>(): T {
+	return Object.create(null) as T;
+}
