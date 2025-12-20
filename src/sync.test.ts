@@ -14,6 +14,7 @@ import {
 	stringifySync,
 	TransformerPair,
 } from "./sync.js";
+import { createObject } from "./utils.js";
 
 test("string", () => {
 	const source = "hello";
@@ -421,4 +422,29 @@ test("null properties", () => {
 	const result = parseSync(serialized);
 
 	expect(result).toEqual(source);
+});
+
+test("parseSync should not pollute Object.prototype with __proto__", () => {
+	// parseSync expects a SerializeReturn JSON string
+	const source = createObject<{
+		__proto__: {
+			polluted: true;
+		};
+		normal: string;
+	}>();
+	source.__proto__ = {
+		polluted: true,
+	};
+	source.normal = "value";
+	const malicious = stringifySync(source);
+	const result = parseSync(malicious);
+
+	// Verify normal property is preserved
+	expect(result.normal).toBe("value");
+
+	expect(result).not.toHaveProperty("polluted");
+	expect(result.__proto__.polluted).toEqual(true);
+
+	// Object.prototype should NOT be polluted (this is the security check)
+	expect((Object.prototype as any).polluted).toBeUndefined();
 });
