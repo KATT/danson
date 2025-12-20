@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.13.1](https://github.com/KATT/danson/compare/0.13.0...0.13.1) (2025-12-20)
+
+### Bug Fixes
+
+- safe-guard prototype pollution ([#14](https://github.com/KATT/danson/issues/14)) ([cb10097](https://github.com/KATT/danson/commit/cb10097c8f448f18dad86db3a01d429de30763f2))
+
 # [0.13.0](https://github.com/KATT/danson/compare/0.12.0...0.13.0) (2025-06-18)
 
 ### Features
